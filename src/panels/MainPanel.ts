@@ -1232,6 +1232,12 @@ export class MainPanel {
           this.post({ type: 'reflogData', payload: result });
           break;
         }
+        case 'expireReflog': {
+          await this.gitService.expireReflogUnreachable();
+          this.post({ type: 'operationComplete', payload: { operation: 'expireReflog', success: true } });
+          await this.refreshAll();
+          break;
+        }
         // --- Bisect ---
         case 'bisectStart': {
           const result = await this.gitService.bisectStart(message.payload.bad, message.payload.good);

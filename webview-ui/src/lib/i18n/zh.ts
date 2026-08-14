@@ -295,7 +295,10 @@ export const zh: Record<string, string> = {
   'search.branchFilterTooltip': '按特定分支筛选',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
-  'search.includeReflogTooltip': '包含仅被 reflog 提及的提交',
+  'search.reflog': 'Reflog',
+  'search.reflogTooltip': 'Reflog 选项',
+  'search.reflogShowUnreachable': '显示不可达提交',
+  'search.reflogExpireUnreachable': '清理不可达提交',
 
   // Activity log
   'activityLog.title': '活动日志',
@@ -331,6 +334,10 @@ export const zh: Record<string, string> = {
   'reflog.timeDay': '{n}天前',
   'reflog.timeMonth': '{n}个月前',
   'reflog.timeYear': '{n}年前',
+  'reflog.expireTitle': '清理不可达的 reflog 条目',
+  'reflog.expireConfirm': '执行 git reflog expire --expire-unreachable=now --all，清理所有指向不可达提交的 reflog 条目。',
+  'reflog.expireWarning': '此操作不可撤销，不可达提交可能被垃圾回收并永久删除。',
+  'reflog.expireConfirmButton': '清理',
 
   // Stats
   'stats.contributors': '贡献者（{count}）',

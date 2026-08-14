@@ -295,7 +295,10 @@ export const ko: Record<string, string> = {
   'search.branchFilterTooltip': '특정 브랜치로 필터',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
-  'search.includeReflogTooltip': 'reflog에만 언급된 커밋 포함',
+  'search.reflog': 'Reflog',
+  'search.reflogTooltip': 'Reflog 옵션',
+  'search.reflogShowUnreachable': '도달 불가능한 커밋 표시',
+  'search.reflogExpireUnreachable': '도달 불가능한 항목 만료',
 
   // Activity log
   'activityLog.title': '활동 로그',
@@ -331,6 +334,10 @@ export const ko: Record<string, string> = {
   'reflog.timeDay': '{n}일 전',
   'reflog.timeMonth': '{n}개월 전',
   'reflog.timeYear': '{n}년 전',
+  'reflog.expireTitle': '도달 불가능한 reflog 항목 만료',
+  'reflog.expireConfirm': 'git reflog expire --expire-unreachable=now --all 을 실행하여 어떤 브랜치나 태그에서도 도달할 수 없는 커밋의 모든 reflog 항목을 만료합니다.',
+  'reflog.expireWarning': '이 작업은 되돌릴 수 없습니다. 도달 불가능한 커밋은 가비지 컬렉션으로 영구 삭제될 수 있습니다.',
+  'reflog.expireConfirmButton': '만료',
 
   // Stats
   'stats.contributors': '기여자 ({count})',

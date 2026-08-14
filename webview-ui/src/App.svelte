@@ -14,6 +14,7 @@
   import StatsView from './components/common/StatsView.svelte';
   import DeleteBranchModal from './components/modals/DeleteBranchModal.svelte';
   import DeleteTagModal from './components/modals/DeleteTagModal.svelte';
+  import ExpireReflogModal from './components/modals/ExpireReflogModal.svelte';
   import CreateBranchModal from './components/modals/CreateBranchModal.svelte';
   import CreateTagModal from './components/modals/CreateTagModal.svelte';
   import MergeBranchModal from './components/modals/MergeBranchModal.svelte';
@@ -65,6 +66,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
   let conflict = $state<{ operation: string; files: Array<{ path: string; resolved: boolean }> } | null>(null);
   let rebasePaused = $state(false);
   let showAbortConfirmModal = $state(false);
+  let showExpireReflogModal = $state(false);
 
   // Non-shared modals (unique to Activity Bar)
   let showStashDropModal = $state(false);
@@ -352,6 +354,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
     });
   }
 
+  function handleExpireReflog() {
+    showExpireReflogModal = true;
+  }
+
   // Draggable resize handle - track active listeners for cleanup
   let resizeCleanup: (() => void) | null = null;
 
@@ -467,6 +473,13 @@ import AmendModal from './components/modals/AmendModal.svelte';
     />
   {/if}
 
+  {#if showExpireReflogModal}
+    <ExpireReflogModal
+      onClose={() => { showExpireReflogModal = false; }}
+      onConfirm={() => { showExpireReflogModal = false; vscode.postMessage({ type: 'expireReflog' }); }}
+    />
+  {/if}
+
   {#if uiStore.errorMessage}
     <div class="error-bar banner-card" transition:slide={{ duration: 150 }}>
       <i class="codicon codicon-error error-icon"></i>
@@ -493,6 +506,7 @@ import AmendModal from './components/modals/AmendModal.svelte';
           onJumpToHead={handleJumpToHead}
           {includeReflog}
           onIncludeReflogChange={handleIncludeReflogChange}
+          onExpireReflog={handleExpireReflog}
         />
       {/if}
       {#if bisectMessage}

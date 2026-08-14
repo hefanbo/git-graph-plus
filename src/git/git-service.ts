@@ -331,6 +331,15 @@ export class GitService {
   }
 
   /**
+   * Expire every reflog entry whose target commit is unreachable, across all
+   * refs. This is the "Expire unreachable" action in the graph toolbar; it
+   * makes abandoned commits (rebase/reset/branch delete) eligible for gc.
+   */
+  async expireReflogUnreachable(): Promise<void> {
+    await this.exec(['reflog', 'expire', '--expire-unreachable=now', '--all']);
+  }
+
+  /**
    * Verify a single commit's signature on demand (for the Commit Details
    * panel). Unlike the graph-wide setting, this only verifies one commit so it
    * is cheap regardless of repo size. Failures degrade to "no signature" rather

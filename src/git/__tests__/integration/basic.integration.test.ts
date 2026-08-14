@@ -254,6 +254,21 @@ describe('GitService integration — basic queries', () => {
     });
   });
 
+  describe('expireReflogUnreachable', () => {
+    it('drops reflog entries for commits unreachable from any ref', async () => {
+      const c1 = commit(repo.path, 'first');
+      const c2 = commit(repo.path, 'second');
+      runGit(repo.path, ['reset', '--hard', c1]);
+
+      // The abandoned commit is still in the reflog before expiring.
+      expect((await svc.getReflog(100)).entries.map(e => e.hash)).toContain(c2);
+
+      await svc.expireReflogUnreachable();
+
+      expect((await svc.getReflog(100)).entries.map(e => e.hash)).not.toContain(c2);
+    });
+  });
+
   describe('diffFiles', () => {
     it('lists files changed between two commits', async () => {
       const c1 = commit(repo.path, 'first', { 'a.txt': 'a\n' });

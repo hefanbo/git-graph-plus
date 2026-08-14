@@ -295,7 +295,10 @@ export const en: Record<string, string> = {
   'search.branchFilterTooltip': 'Filter by specific branch',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
-  'search.includeReflogTooltip': 'Include commits only mentioned by reflogs',
+  'search.reflog': 'Reflog',
+  'search.reflogTooltip': 'Reflog options',
+  'search.reflogShowUnreachable': 'Show unreachable',
+  'search.reflogExpireUnreachable': 'Expire unreachable',
 
   // Activity log
   'activityLog.title': 'Activity Log',
@@ -331,6 +334,10 @@ export const en: Record<string, string> = {
   'reflog.timeDay': '{n}d ago',
   'reflog.timeMonth': '{n}mo ago',
   'reflog.timeYear': '{n}y ago',
+  'reflog.expireTitle': 'Expire unreachable reflog entries',
+  'reflog.expireConfirm': 'Run git reflog expire --expire-unreachable=now --all to expire every reflog entry whose commit is no longer reachable from any branch or tag.',
+  'reflog.expireWarning': 'This cannot be undone. Unreachable commits may become garbage-collected and permanently lost.',
+  'reflog.expireConfirmButton': 'Expire',
 
   // Stats
   'stats.contributors': 'Contributors ({count})',

@@ -18,6 +18,7 @@
     onJumpToHead?: () => void;
     includeReflog?: boolean;
     onIncludeReflogChange?: (value: boolean) => void;
+    onExpireReflog?: () => void;
   }
 
   let {
@@ -33,6 +34,7 @@
     onJumpToHead = () => {},
     includeReflog = false,
     onIncludeReflogChange = () => {},
+    onExpireReflog = () => {},
   }: Props = $props();
 
   let query = $state('');
@@ -41,6 +43,7 @@
   let inputEl: HTMLInputElement | undefined = $state();
   let filterOpen = $state(false);
   let branchFilterOpen = $state(false);
+  let reflogOpen = $state(false);
   let branchQuery = $state('');
 
   const filterActive = $derived(remoteFilter.length > 0);
@@ -164,6 +167,8 @@
         branchFilterOpen = false;
       } else if (filterOpen) {
         filterOpen = false;
+      } else if (reflogOpen) {
+        reflogOpen = false;
       } else {
         clear();
         inputEl?.blur();
@@ -367,15 +372,35 @@
     {/if}
   </div>
 
-  <button
-    class="reflog-btn"
-    class:active={includeReflog}
-    onclick={() => onIncludeReflogChange(!includeReflog)}
-    aria-label={t('search.includeReflogTooltip')}
-    use:tooltip={t('search.includeReflogTooltip')}
-  >
-    <i class="codicon codicon-history"></i>
-  </button>
+  <div class="filter-wrap">
+    <button
+      class="filter-btn"
+      class:active={includeReflog}
+      onclick={() => { reflogOpen = !reflogOpen; }}
+      use:tooltip={t('search.reflogTooltip')}
+    >
+      <i class="codicon codicon-history filter-btn-icon"></i>
+      <span class="filter-label">{t('search.reflog')}</span>
+      <i class="codicon {reflogOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'} chevron"></i>
+    </button>
+
+    {#if reflogOpen}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="backdrop" onclick={() => { reflogOpen = false; }}></div>
+      <div class="dropdown">
+        <button class="dd-item" class:active={includeReflog} onclick={() => onIncludeReflogChange(!includeReflog)}>
+          <input type="checkbox" checked={includeReflog} readonly />
+          {t('search.reflogShowUnreachable')}
+        </button>
+        <div class="dd-sep"></div>
+        <button class="dd-item dd-item--danger" onclick={() => { reflogOpen = false; onExpireReflog(); }}>
+          <span class="dd-item-icon"><i class="codicon codicon-trash"></i></span>
+          {t('search.reflogExpireUnreachable')}
+        </button>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -540,32 +565,6 @@
     cursor: default;
   }
 
-  .reflog-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    flex-shrink: 0;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: color 0.1s, border-color 0.1s;
-  }
-
-  .reflog-btn:hover {
-    color: var(--text-primary);
-    border-color: var(--vscode-focusBorder, #007fd4);
-  }
-
-  .reflog-btn.active {
-    color: var(--vscode-focusBorder, #007fd4);
-    border-color: var(--vscode-focusBorder, #007fd4);
-  }
-
   .filter-btn {
     display: flex;
     align-items: center;
@@ -658,6 +657,7 @@
     font-family: inherit;
     cursor: pointer;
     text-align: left;
+    white-space: nowrap;
   }
 
   .dd-item:hover {
@@ -667,6 +667,25 @@
 
   .dd-item.active {
     color: var(--text-primary);
+  }
+
+  .dd-item-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+
+  .dd-item--danger {
+    color: var(--vscode-errorForeground, #f44336);
+  }
+
+  .dd-item--danger:hover {
+    background: rgba(244, 67, 54, 0.12);
+    color: var(--vscode-errorForeground, #f44336);
   }
 
   input[type="checkbox"] {
