@@ -130,35 +130,36 @@ describe('GitService — LFS', () => {
     await expect(service.lfsUnlock('-evil')).rejects.toThrow();
   });
 
-  it('lfsLocks returns parsed locks on success', async () => {
+  it('lfsLocks returns ok with parsed locks on success', async () => {
     mockExec(service, async () => 'logo.png\talice\tID:1\n');
     const result = await service.lfsLocks();
-    expect(result).toEqual([{ path: 'logo.png', owner: 'alice', id: 'ID:1' }]);
+    expect(result).toEqual({ status: 'ok', locks: [{ path: 'logo.png', owner: 'alice', id: 'ID:1' }] });
   });
 
-  it('lfsLocks returns [] when git-lfs not installed', async () => {
+  it('lfsLocks returns none when the query succeeds with no locks', async () => {
+    mockExec(service, async () => '');
+    expect(await service.lfsLocks()).toEqual({ status: 'none' });
+  });
+
+  it('lfsLocks returns unknown when git-lfs is not installed', async () => {
     mockExec(service, async (args) => { throw new GitError('spawn failed', null, args); });
-    expect(await service.lfsLocks()).toEqual([]);
+    expect(await service.lfsLocks()).toEqual({ status: 'unknown' });
   });
 
-  it('lfsLocks stays silent when git-lfs is not a git command (exit 1)', async () => {
+  it('lfsLocks returns unknown and never surfaces a UI warning on failure', async () => {
     const warn = vi.fn();
     service.setWarningHandler(warn);
     mockExec(service, async (args) => { throw new GitError("git: 'lfs' is not a git command. See 'git --help'.", 1, args); });
-    expect(await service.lfsLocks()).toEqual([]);
+    expect(await service.lfsLocks()).toEqual({ status: 'unknown' });
     expect(warn).not.toHaveBeenCalled();
-  });
 
-  it('lfsLocks swallows known expected errors and surfaces unexpected ones', async () => {
-    const warn = vi.fn();
-    service.setWarningHandler(warn);
     mockExec(service, async (args) => { throw new GitError('lfs.url not configured', 1, args); });
-    expect(await service.lfsLocks()).toEqual([]);
+    expect(await service.lfsLocks()).toEqual({ status: 'unknown' });
     expect(warn).not.toHaveBeenCalled();
 
-    mockExec(service, async (args) => { throw new GitError('unexpected error condition', 1, args); });
-    expect(await service.lfsLocks()).toEqual([]);
-    expect(warn).toHaveBeenCalled();
+    mockExec(service, async (args) => { throw new GitError('connection refused', 1, args); });
+    expect(await service.lfsLocks()).toEqual({ status: 'unknown' });
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('lfsLsFiles recognises additional expected error patterns', async () => {

@@ -183,3 +183,18 @@ export interface LogOptions {
    *  applies on the unfiltered first page, mirroring the stash base hashes. */
   includeReflog?: boolean;
 }
+
+export interface LfsLock {
+  path: string;
+  owner: string;
+  id: string;
+}
+
+/** Result of querying remote LFS locks.
+ *  - `ok`: the query succeeded and returned a non-empty lock list.
+ *  - `none`: the query succeeded with no locks.
+ *  - `unknown`: the query failed, so lock state is unknown. */
+export type LfsLocksState =
+  | { status: 'ok'; locks: LfsLock[] }
+  | { status: 'none' }
+  | { status: 'unknown' };

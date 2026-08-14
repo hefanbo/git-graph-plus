@@ -661,6 +661,7 @@ export const ko: Record<string, string> = {
   'lfs.lock': 'LFS 잠금',
   'lfs.unlock': 'LFS 잠금 해제',
   'lfs.unlockForce': 'LFS 강제 잠금 해제',
+  'lfs.locksUnknown': 'LFS 잠금 상태를 알 수 없습니다',
   'lfs.fileHistory': '파일 변경 이력 보기',
   'checkout.blockedTitle': 'Checkout Branch',
   'checkout.blockedDesc': '커밋되지 않은 로컬 변경 사항이 있습니다.',

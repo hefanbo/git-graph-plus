@@ -173,8 +173,9 @@ describe('GitService integration — LFS in a non-LFS repo', () => {
     expect(await svc.lfsLsFiles()).toEqual([]);
   });
 
-  it('lfsLocks returns [] without a server / without LFS', async () => {
-    expect(await svc.lfsLocks()).toEqual([]);
+  it('lfsLocks reports none or unknown without a server / without LFS', async () => {
+    const result = await svc.lfsLocks();
+    expect(['none', 'unknown']).toContain(result.status);
   });
 });
 
@@ -202,11 +203,11 @@ describe.skipIf(!hasLfs)('GitService integration — Git LFS', () => {
     expect(bin?.oid).toMatch(/^[0-9a-f]+$/);
   });
 
-  it('lfsLocks returns [] when no locks set (server-less mode)', async () => {
-    // Without a remote LFS server, `lfs locks` returns empty / errors out;
-    // either way our wrapper resolves to [].
-    const locks = await svc.lfsLocks();
-    expect(Array.isArray(locks)).toBe(true);
+  it('lfsLocks reports none when no locks set (server-less mode)', async () => {
+    // Without a remote LFS server, `lfs locks` returns empty or errors out;
+    // either way our wrapper resolves to a non-ok status (none or unknown).
+    const result = await svc.lfsLocks();
+    expect(['none', 'unknown']).toContain(result.status);
   });
 });
 

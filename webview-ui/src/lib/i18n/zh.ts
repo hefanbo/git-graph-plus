@@ -661,6 +661,7 @@ export const zh: Record<string, string> = {
   'lfs.lock': 'LFS 锁定',
   'lfs.unlock': 'LFS 解锁',
   'lfs.unlockForce': 'LFS 强制解锁',
+  'lfs.locksUnknown': 'LFS 锁状态未知',
   'lfs.fileHistory': '显示文件历史',
   'checkout.blockedTitle': '检出分支',
   'checkout.blockedDesc': '您有未提交的本地更改。',

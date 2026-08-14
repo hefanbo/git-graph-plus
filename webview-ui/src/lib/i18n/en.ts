@@ -663,6 +663,7 @@ export const en: Record<string, string> = {
   'lfs.lock': 'LFS Lock',
   'lfs.unlock': 'LFS Unlock',
   'lfs.unlockForce': 'LFS Force Unlock',
+  'lfs.locksUnknown': 'LFS lock status unknown',
   'lfs.fileHistory': 'Show File History',
   'checkout.blockedTitle': 'Checkout Branch',
   'checkout.blockedDesc': 'You have uncommitted local changes.',

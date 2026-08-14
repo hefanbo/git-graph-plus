@@ -16,7 +16,7 @@ import { resolveGitDirs } from '../services/file-watcher-helpers';
 const DEFAULT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
 import { parseLog, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, mapSignatureStatus } from './git-parser';
 import { buildReversePatch } from './patch-builder';
-import type { Commit, BranchInfo, TagInfo, RemoteInfo, StashEntry, LogOptions, DiffData, WorktreeInfo, CommitSignature, UserDetails } from './types';
+import type { Commit, BranchInfo, TagInfo, RemoteInfo, StashEntry, LogOptions, DiffData, WorktreeInfo, CommitSignature, UserDetails, LfsLocksState } from './types';
 
 export class GitError extends Error {
   constructor(
@@ -2180,16 +2180,18 @@ export class GitService {
     return this.exec(args);
   }
 
-  async lfsLocks(): Promise<Array<{ path: string; owner: string; id: string }>> {
+  async lfsLocks(): Promise<LfsLocksState> {
     try {
       const raw = await this.exec(['lfs', 'locks']);
-      return parseLfsLocks(raw);
+      const locks = parseLfsLocks(raw);
+      return locks.length > 0 ? { status: 'ok', locks } : { status: 'none' };
     } catch (err) {
-      if (err instanceof GitError && err.exitCode !== null && !this.isExpectedLfsFailure(err.stderr)) {
-        this.warn(`LFS locks failed: ${err.stderr || err.message}`);
-      }
+      // Any failure (network refused, unconfigured lock server, git-lfs
+      // missing) leaves lock state unknown. Log it to the console/Output
+      // channel, but don't surface a UI toast — the caller renders a quiet
+      // "unknown" hint so we stay honest without nagging the user.
       logger.warn('Git Graph+: LFS locks failed:', err instanceof Error ? err.message : err);
-      return [];
+      return { status: 'unknown' };
     }
   }
 

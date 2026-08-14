@@ -1,4 +1,4 @@
-import type { CommitGraphData, BranchData, DiffData, Commit, WorktreeInfo, CommitSignature, UserDetails } from '../git/types';
+import type { CommitGraphData, BranchData, DiffData, Commit, WorktreeInfo, CommitSignature, UserDetails, LfsLocksState } from '../git/types';
 
 export interface LinkRule {
   pattern: string;
@@ -156,7 +156,7 @@ export type ExtensionMessage =
   | { type: 'statsData'; payload: { byAuthor: Array<{ author: string; email: string; count: number }>; byWeekdayHour: Array<{ weekday: number; hour: number; count: number }> } }
   | { type: 'lsTreeData'; payload: { ref: string; path?: string; entries: Array<{ mode: string; type: 'blob' | 'tree'; hash: string; name: string }> } }
   | { type: 'submoduleData'; payload: Array<{ hash: string; path: string; status: string }> }
-  | { type: 'lfsData'; payload: { files: Array<{ oid: string; path: string }>; locks: Array<{ path: string; owner: string; id: string }> } }
+  | { type: 'lfsData'; payload: { files: Array<{ oid: string; path: string }>; locks: LfsLocksState } }
   | { type: 'tagDetailsData'; payload: { name: string; hash: string; message?: string; isAnnotated: boolean } }
   | { type: 'setLocale'; payload: { locale: string; homeDir?: string } }
   | { type: 'setInteractiveRebaseMode'; payload: { mode: 'ui' | 'classic' } }

@@ -39,7 +39,12 @@ function deliverFileDiff(hash: string, file: string, diff: DiffData) {
   }));
 }
 
-function deliverLfs(files: Array<{ oid: string; path: string }>, locks: Array<{ path: string; owner: string; id: string }>) {
+type LfsLocksState =
+  | { status: 'ok'; locks: Array<{ path: string; owner: string; id: string }> }
+  | { status: 'none' }
+  | { status: 'unknown' };
+
+function deliverLfs(files: Array<{ oid: string; path: string }>, locks: LfsLocksState) {
   window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'lfsData', payload: { files, locks } },
   }));
@@ -674,7 +679,7 @@ describe('CommitDetails — LFS badges', () => {
   it('shows an LFS badge on files in the LFS file set', async () => {
     const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
     deliverCommitDiff('h1', [{ path: 'assets/big.bin', status: 'M' }]);
-    deliverLfs([{ oid: 'o', path: 'assets/big.bin' }], []);
+    deliverLfs([{ oid: 'o', path: 'assets/big.bin' }], { status: 'none' });
     const changesTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
       .find(t => /change/i.test(t.textContent ?? ''))!;
     await fireEvent.click(changesTab);
@@ -686,7 +691,7 @@ describe('CommitDetails — LFS badges', () => {
     deliverCommitDiff('h1', [{ path: 'a.bin', status: 'M' }]);
     deliverLfs(
       [{ oid: 'o', path: 'a.bin' }],
-      [{ path: 'a.bin', owner: 'alice', id: 'L1' }],
+      { status: 'ok', locks: [{ path: 'a.bin', owner: 'alice', id: 'L1' }] },
     );
     const changesTab = Array.from(container.querySelectorAll<HTMLButtonElement>('.top-tab'))
       .find(t => /change/i.test(t.textContent ?? ''))!;
@@ -1007,7 +1012,7 @@ describe('CommitDetails — file context menu actions', () => {
     const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
     deliverCommitDiff('h1', [{ path: 'a.bin', status: 'M' }]);
     window.dispatchEvent(new MessageEvent('message', {
-      data: { type: 'lfsData', payload: { files: [{ oid: 'o', path: 'a.bin' }], locks: [] } },
+      data: { type: 'lfsData', payload: { files: [{ oid: 'o', path: 'a.bin' }], locks: { status: 'none' } } },
     }));
     await openMenu(container);
     const lockItem = Array.from(document.querySelectorAll<HTMLButtonElement>('button, [role="menuitem"]'))
@@ -1025,7 +1030,7 @@ describe('CommitDetails — file context menu actions', () => {
     window.dispatchEvent(new MessageEvent('message', {
       data: { type: 'lfsData', payload: {
         files: [{ oid: 'o', path: 'a.bin' }],
-        locks: [{ path: 'a.bin', owner: 'alice', id: 'L1' }],
+        locks: { status: 'ok', locks: [{ path: 'a.bin', owner: 'alice', id: 'L1' }] },
       } },
     }));
     await openMenu(container);
@@ -1044,7 +1049,7 @@ describe('CommitDetails — file context menu actions', () => {
   it('LFS "Force Unlock" posts lfsUnlock with force:true', async () => {
     const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
     deliverCommitDiff('h1', [{ path: 'a.bin', status: 'M' }]);
-    deliverLfs([{ oid: 'o', path: 'a.bin' }], [{ path: 'a.bin', owner: 'alice', id: 'L1' }]);
+    deliverLfs([{ oid: 'o', path: 'a.bin' }], { status: 'ok', locks: [{ path: 'a.bin', owner: 'alice', id: 'L1' }] });
     await openMenu(container);
     const forceItem = Array.from(document.querySelectorAll<HTMLButtonElement>('button, [role="menuitem"]'))
       .find(b => /force/i.test(b.textContent ?? ''))!;

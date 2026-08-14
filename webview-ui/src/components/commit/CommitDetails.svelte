@@ -53,8 +53,13 @@
   let selectedPatchFiles = $state<Set<string>>(new Set());
   let uncommittedFiles = $state<{ staged: CommitFile[]; unstaged: CommitFile[] } | null>(null);
   let uncommittedDiffCache = $state(new Map<string, DiffData>());
+  type LfsLocksState =
+    | { status: 'ok'; locks: Array<{ path: string; owner: string; id: string }> }
+    | { status: 'none' }
+    | { status: 'unknown' };
+
   let lfsFiles = $state<Array<{ oid: string; path: string }>>([]);
-  let lfsLocks = $state<Array<{ path: string; owner: string; id: string }>>([]);
+  let lfsLocks = $state<LfsLocksState>({ status: 'none' });
   // On-demand signature for the selected commit, fetched independently of the
   // graph-wide setting so the panel always shows verification status.
   let signature = $state<CommitSignature | null>(null);
@@ -163,7 +168,7 @@
   let previewTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const lfsFileSet = $derived(new Set(lfsFiles.map(f => f.path)));
-  const lfsLockMap = $derived(new Map(lfsLocks.map(l => [l.path, l.owner])));
+  const lfsLockMap = $derived(new Map(lfsLocks.status === 'ok' ? lfsLocks.locks.map(l => [l.path, l.owner] as [string, string]) : []));
 
   // The stash this commit represents, if any (graph rows for stashes carry a
   // ref of type 'stash' named `stash@{N}`).
@@ -1111,6 +1116,9 @@
               {/if}
             {/each}
           {/snippet}
+          {#if lfsLocks.status === 'unknown' && lfsFileSet.size > 0}
+            <div class="lfs-unknown-hint">{t('lfs.locksUnknown')}</div>
+          {/if}
           {@render renderTree(fileTree, 0)}
           {/if}
         </div>
@@ -1705,6 +1713,13 @@
     color: var(--text-muted, #888);
     font-size: 12px;
     text-align: center;
+  }
+
+  .lfs-unknown-hint {
+    padding: 6px 8px;
+    color: var(--text-muted, #888);
+    font-size: 11px;
+    font-style: italic;
   }
 
   .sections-pane { flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; }
