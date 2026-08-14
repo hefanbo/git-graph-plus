@@ -399,6 +399,17 @@ export class MainPanel {
     }
   }
 
+  /** Load LFS files and remote lock state, then send both to the webview. Only
+   *  query `lfs locks` when the repo actually tracks LFS files — otherwise the
+   *  network call is pointless and errors on every commit selection. */
+  private async postLfsData(): Promise<void> {
+    const lfsFiles = await this.gitService.lfsLsFiles();
+    const lfsLocks = lfsFiles.length > 0
+      ? await this.gitService.lfsLocks()
+      : { status: 'none' as const };
+    this.post({ type: 'lfsData', payload: { files: lfsFiles, locks: lfsLocks } });
+  }
+
   private async handleMessage(message: WebviewMessage): Promise<void> {
     try {
       switch (message.type) {
@@ -1416,27 +1427,21 @@ export class MainPanel {
         }
         // --- LFS ---
         case 'getLfsFiles': {
-          const lfsFiles = await this.gitService.lfsLsFiles();
-          const lfsLocks = await this.gitService.lfsLocks();
-          this.post({ type: 'lfsData', payload: { files: lfsFiles, locks: lfsLocks } });
+          await this.postLfsData();
           break;
         }
         case 'lfsLock': {
           await this.gitService.lfsLock(message.payload.file);
           this.post({ type: 'operationComplete', payload: { operation: 'lfsLock', success: true } });
           // Refresh LFS data
-          const lfsFiles = await this.gitService.lfsLsFiles();
-          const lfsLocks = await this.gitService.lfsLocks();
-          this.post({ type: 'lfsData', payload: { files: lfsFiles, locks: lfsLocks } });
+          await this.postLfsData();
           break;
         }
         case 'lfsUnlock': {
           await this.gitService.lfsUnlock(message.payload.file, message.payload.force);
           this.post({ type: 'operationComplete', payload: { operation: 'lfsUnlock', success: true } });
           // Refresh LFS data
-          const lfsFiles2 = await this.gitService.lfsLsFiles();
-          const lfsLocks2 = await this.gitService.lfsLocks();
-          this.post({ type: 'lfsData', payload: { files: lfsFiles2, locks: lfsLocks2 } });
+          await this.postLfsData();
           break;
         }
         // --- Worktree ---
