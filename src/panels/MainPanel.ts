@@ -23,6 +23,7 @@ import {
 } from '../utils/path-validation';
 import { SequenceGuard } from '../utils/sequence-guard';
 import { resolveDefaultWorktreePath } from '../utils/worktree-path';
+import { logger } from '../utils/logger';
 
 export class MainPanel {
   public static currentPanel: MainPanel | undefined;
@@ -1863,7 +1864,7 @@ export class MainPanel {
         MainPanel.onSidebarRefresh?.();
       }
     } catch (err) {
-      console.warn('Git Graph+: refresh failed:', err instanceof Error ? err.message : err);
+      logger.warn('Git Graph+: refresh failed:', err instanceof Error ? err.message : err);
       if (err instanceof GitError && /not a git repository/.test(err.stderr)) {
         try { this.post({ type: 'notGitRepo' }); } catch { /* panel disposed */ }
       }

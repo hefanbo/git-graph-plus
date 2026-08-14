@@ -1,5 +1,6 @@
 import * as path from 'path';
 import type { WorktreeInfo } from '../git/types';
+import { logger } from './logger';
 
 /**
  * Resolve the default base folder for new worktrees: `<main-repo>.worktrees`,
@@ -17,7 +18,7 @@ export async function resolveDefaultWorktreePath(
       baseRepoPath = mainWorktree.path;
     }
   } catch (err) {
-    console.warn('Git Graph+: failed to resolve main worktree path:', err instanceof Error ? err.message : err);
+    logger.warn('Git Graph+: failed to resolve main worktree path:', err instanceof Error ? err.message : err);
   }
   return path.join(path.dirname(baseRepoPath), `${path.basename(baseRepoPath)}.worktrees`);
 }

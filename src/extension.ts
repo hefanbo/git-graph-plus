@@ -15,6 +15,7 @@ import { RepoDiscoveryService } from './services/repo-discovery';
 import { samePath } from './utils/path';
 import { resolveDefaultWorktreePath } from './utils/worktree-path';
 import { readTimeoutMs } from './utils/config';
+import { logger, setLogSink } from './utils/logger';
 
 /**
  * Resolve the `git.path` setting to an existing executable. The setting may be
@@ -34,6 +35,12 @@ export function activate(context: vscode.ExtensionContext) {
   // Status bar is always visible regardless of workspace state
   const statusBar = new StatusBarManager();
   context.subscriptions.push(statusBar);
+
+  // Route logs to an Output panel channel (select "Git Graph+" in the Output
+  // dropdown). The console is still written by `logger` itself.
+  const output = vscode.window.createOutputChannel('Git Graph+');
+  context.subscriptions.push(output);
+  setLogSink(message => output.appendLine(message));
 
   // Persistent avatar cache lives under globalStorage so every window reuses
   // the same avatars instead of re-fetching from gravatar.com (issue #38).
@@ -151,7 +158,7 @@ export function activate(context: vscode.ExtensionContext) {
     tagsProvider.prefetch(),
     stashesProvider.prefetch(),
     worktreesProvider.prefetch(),
-  ]).catch((err) => { console.warn('Git Graph+: sidebar prefetch failed:', err instanceof Error ? err.message : err); });
+  ]).catch((err) => { logger.warn('Git Graph+: sidebar prefetch failed:', err instanceof Error ? err.message : err); });
 
   // --- File Watcher ---
   // This watcher owns the sidebar; the graph panel runs its own FileWatcher
@@ -211,7 +218,7 @@ export function activate(context: vscode.ExtensionContext) {
       });
       fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
     }
-  }).catch((err) => { console.warn('Git Graph+: repo discovery failed:', err instanceof Error ? err.message : err); });
+  }).catch((err) => { logger.warn('Git Graph+: repo discovery failed:', err instanceof Error ? err.message : err); });
 
   // When workspace folders change (multi-root add/remove), re-discover repos
   // so the repo dropdown in the panel reflects reality. The panel-side

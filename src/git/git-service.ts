@@ -4,6 +4,7 @@ import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { bufferStream, BufferOverflowError } from '../utils/buffer-stream';
+import { logger } from '../utils/logger';
 import { getGitBinaryPath } from './git-binary';
 import { resolveGitDirs } from '../services/file-watcher-helpers';
 
@@ -108,7 +109,7 @@ export class GitService {
   }
 
   private warn(message: string): void {
-    console.warn(`Git Graph+: ${message}`);
+    logger.warn(`Git Graph+: ${message}`);
     try { this.warningHandler?.(message); } catch { /* never let a handler break a git call */ }
   }
 
@@ -761,7 +762,7 @@ export class GitService {
         ]);
         return parseStashList(raw);
       } catch (err) {
-        console.warn('Git Graph+: failed to list stashes:', err instanceof Error ? err.message : err);
+        logger.warn('Git Graph+: failed to list stashes:', err instanceof Error ? err.message : err);
         return [];
       }
     });
@@ -1840,7 +1841,7 @@ export class GitService {
       const raw = await this.exec(['diff', '--name-only', '--diff-filter=U']);
       return raw.trim().split('\n').filter(Boolean);
     } catch (err) {
-      console.warn('Git Graph+: failed to get conflict files:', err instanceof Error ? err.message : err);
+      logger.warn('Git Graph+: failed to get conflict files:', err instanceof Error ? err.message : err);
       return [];
     }
   }
@@ -2075,7 +2076,7 @@ export class GitService {
       const commits = parseLog(raw, remoteNames);
       return commits[0] ?? null;
     } catch (err) {
-      console.warn('Git Graph+: failed to get commit by hash:', err instanceof Error ? err.message : err);
+      logger.warn('Git Graph+: failed to get commit by hash:', err instanceof Error ? err.message : err);
       return null;
     }
   }
@@ -2161,7 +2162,7 @@ export class GitService {
       if (err instanceof GitError && err.exitCode !== null && !this.isExpectedLfsFailure(err.stderr)) {
         this.warn(`LFS ls-files failed: ${err.stderr || err.message}`);
       }
-      console.warn('Git Graph+: LFS ls-files failed:', err instanceof Error ? err.message : err);
+      logger.warn('Git Graph+: LFS ls-files failed:', err instanceof Error ? err.message : err);
       return [];
     }
   }
@@ -2187,7 +2188,7 @@ export class GitService {
       if (err instanceof GitError && err.exitCode !== null && !this.isExpectedLfsFailure(err.stderr)) {
         this.warn(`LFS locks failed: ${err.stderr || err.message}`);
       }
-      console.warn('Git Graph+: LFS locks failed:', err instanceof Error ? err.message : err);
+      logger.warn('Git Graph+: LFS locks failed:', err instanceof Error ? err.message : err);
       return [];
     }
   }
@@ -2353,7 +2354,7 @@ export class GitService {
         hotfixPrefix: hotfix,
         versionTagPrefix: versionTag,
       };
-    } catch (err) { console.warn('Git Graph+: failed to get flow config:', err instanceof Error ? err.message : err); return null; }
+    } catch (err) { logger.warn('Git Graph+: failed to get flow config:', err instanceof Error ? err.message : err); return null; }
   }
 
   async getFlowBranches(): Promise<{ features: string[]; releases: string[]; hotfixes: string[] }> {
@@ -2522,14 +2523,14 @@ export class GitService {
     try {
       await this.exec(['flow', 'version']);
       return true;
-    } catch (err) { console.warn('Git Graph+: flow version check failed:', err instanceof Error ? err.message : err); return false; }
+    } catch (err) { logger.warn('Git Graph+: flow version check failed:', err instanceof Error ? err.message : err); return false; }
   }
 
   async isFlowInitialized(): Promise<boolean> {
     try {
       await this.exec(['config', '--get', 'gitflow.branch.master']);
       return true;
-    } catch (err) { console.warn('Git Graph+: flow init check failed:', err instanceof Error ? err.message : err); return false; }
+    } catch (err) { logger.warn('Git Graph+: flow init check failed:', err instanceof Error ? err.message : err); return false; }
   }
 
 }
