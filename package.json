@@ -527,6 +527,7 @@
         "gitGraphPlus.defaults.merge.mode": { "type": "string", "enum": ["default", "no-ff", "squash"], "default": "default", "markdownDescription": "Merge strategy: `default` (fast-forward when possible), `no-ff` (always create a merge commit), or `squash`." },
         "gitGraphPlus.defaults.merge.pushAfter": { "type": "boolean", "default": false, "markdownDescription": "Push the current branch after a successful merge." },
         "gitGraphPlus.defaults.merge.deleteSource": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks deleting the merged source branch." },
+        "gitGraphPlus.defaults.merge.strategyOurs": { "type": "boolean", "default": false, "markdownDescription": "Use the `ours` merge strategy (`git merge -s ours`): keep the current branch's content and discard the incoming branch's changes, while recording a merge commit." },
         "gitGraphPlus.defaults.rebase.autostash": { "type": "boolean", "default": false, "markdownDescription": "Stash and reapply local changes around the rebase (`--autostash`)." },
         "gitGraphPlus.defaults.rebase.pushAfter": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks a force-with-lease push after rebase." },
         "gitGraphPlus.defaults.amend.keepMessage": { "type": "boolean", "default": true, "markdownDescription": "Keep the existing commit message (`--no-edit`)." },

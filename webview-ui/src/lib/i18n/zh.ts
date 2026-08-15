@@ -440,6 +440,8 @@ export const zh: Record<string, string> = {
   'merge.ffOnly': '仅快进 - 无法快进时失败',
   'merge.squash': '压缩 - 将所有提交合并为一个',
   'merge.squashWarning': '原始提交在历史中<span class="modal-emph modal-emph--danger">将不会被保留</span>。',
+  'merge.strategyOurs': '使用合并策略：ours',
+  'merge.strategyOursWarning': '待合并分支的更改将被<span class="modal-emph modal-emph--danger">忽略</span>。将创建一个保留当前分支内容的合并提交。',
   'merge.checkingConflicts': '正在检查 Merge 冲突',
   'merge.conflictWarning': 'Merge 冲突 {count} 个文件',
   'merge.noConflict': '无 Merge 冲突',

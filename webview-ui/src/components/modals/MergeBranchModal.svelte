@@ -14,13 +14,14 @@
     target: string;
     canDeleteSource?: boolean;
     onClose: () => void;
-    onMerge: (options: { noFf: boolean; ffOnly: boolean; squash: boolean; pushAfter: boolean; deleteSource: boolean }) => void;
+    onMerge: (options: { noFf: boolean; ffOnly: boolean; squash: boolean; strategyOurs: boolean; pushAfter: boolean; deleteSource: boolean }) => void;
   }
 
   let { source, target, canDeleteSource = false, onClose, onMerge }: Props = $props();
   let mergeMode = $state<'default' | 'no-ff' | 'squash'>(defaultsStore.current.merge.mode);
   let pushAfter = $state(defaultsStore.current.merge.pushAfter);
   let deleteSource = $state(defaultsStore.current.merge.deleteSource);
+  let strategyOurs = $state(defaultsStore.current.merge.strategyOurs);
   let mergeBtn: HTMLButtonElement | undefined = $state();
 
   let conflictPrediction = $state<{ hasConflict: boolean; files: string[] } | null>(null);
@@ -48,18 +49,30 @@
     <i class="codicon codicon-arrow-right" style="color: var(--text-secondary);"></i>
     <span use:tooltip={shortenRef(target)} class="modal-pill modal-pill--target"><i class="codicon {isCommitHash(target) ? 'codicon-git-commit' : 'codicon-git-branch'}"></i><span class="modal-pill-text">{shortenRef(target)}</span></span>
   </div>
+  {#if !strategyOurs}
+    <div class="modal-form-group">
+      <span class="modal-field-label">{t('merge.mergeType')}</span>
+      <ColorSelect
+        options={[
+          { value: 'default', label: t('merge.default'), color: '#4caf50' },
+          { value: 'no-ff', label: t('merge.noFf'), color: '#2196f3', flag: '--no-ff' },
+          { value: 'squash', label: t('merge.squash'), color: '#9c27b0', warning: t('merge.squashWarning'), flag: '--squash' },
+        ]}
+        value={mergeMode}
+        onChange={(v) => { mergeMode = v as typeof mergeMode; }}
+      />
+    </div>
+  {/if}
   <div class="modal-form-group">
-    <span class="modal-field-label">{t('merge.mergeType')}</span>
-    <ColorSelect
-      options={[
-        { value: 'default', label: t('merge.default'), color: '#4caf50' },
-        { value: 'no-ff', label: t('merge.noFf'), color: '#2196f3', flag: '--no-ff' },
-        { value: 'squash', label: t('merge.squash'), color: '#9c27b0', warning: t('merge.squashWarning'), flag: '--squash' },
-      ]}
-      value={mergeMode}
-      onChange={(v) => { mergeMode = v as typeof mergeMode; }}
-    />
+    <label class="modal-checkbox">
+      <input type="checkbox" bind:checked={strategyOurs} />
+      <span>{t('merge.strategyOurs')}</span>
+      <span class="modal-flag-badge">-s ours</span>
+    </label>
   </div>
+  {#if strategyOurs}
+    <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('merge.strategyOursWarning')}</span></p>
+  {/if}
   <div class="modal-form-group">
     <label class="modal-checkbox">
       <input type="checkbox" bind:checked={pushAfter} />
@@ -79,22 +92,31 @@
     <p class="modal-warning" role="alert"><i class="codicon codicon-warning"></i><span>{@html t('merge.deleteSourceWarning')}</span></p>
   {/if}
   <div class="form-actions">
-    <div class="conflict-status" class:is-warning={conflictPrediction?.hasConflict} class:is-success={conflictPrediction !== null && !conflictPrediction?.hasConflict}>
-      {#if conflictPrediction === null}
-        <span class="spinner"></span>
-        <span>{t('merge.checkingConflicts')}</span>
-      {:else if conflictPrediction.hasConflict}
-        <ConflictFilesPopover files={conflictPrediction.files}>
-          <i class="codicon codicon-warning"></i>
-          <span>{@html t('merge.conflictWarning', { count: String(conflictPrediction.files.length) })}</span>
-        </ConflictFilesPopover>
-      {:else}
-        <i class="codicon codicon-check modal-status-check"></i>
-        <span>{t('merge.noConflict')}</span>
-      {/if}
-    </div>
+    {#if !strategyOurs}
+      <div class="conflict-status" class:is-warning={conflictPrediction?.hasConflict} class:is-success={conflictPrediction !== null && !conflictPrediction?.hasConflict}>
+        {#if conflictPrediction === null}
+          <span class="spinner"></span>
+          <span>{t('merge.checkingConflicts')}</span>
+        {:else if conflictPrediction.hasConflict}
+          <ConflictFilesPopover files={conflictPrediction.files}>
+            <i class="codicon codicon-warning"></i>
+            <span>{@html t('merge.conflictWarning', { count: String(conflictPrediction.files.length) })}</span>
+          </ConflictFilesPopover>
+        {:else}
+          <i class="codicon codicon-check modal-status-check"></i>
+          <span>{t('merge.noConflict')}</span>
+        {/if}
+      </div>
+    {/if}
     <button onclick={onClose}>{t('common.cancel')}</button>
-    <button class="primary" bind:this={mergeBtn} onclick={() => onMerge({ noFf: mergeMode === 'no-ff', ffOnly: false, squash: mergeMode === 'squash', pushAfter, deleteSource: canDeleteSource && deleteSource })}>{t('merge.merge')}</button>
+    <button class="primary" bind:this={mergeBtn} onclick={() => onMerge({
+      noFf: strategyOurs ? false : mergeMode === 'no-ff',
+      ffOnly: false,
+      squash: strategyOurs ? false : mergeMode === 'squash',
+      strategyOurs,
+      pushAfter,
+      deleteSource: canDeleteSource && deleteSource,
+    })}>{t('merge.merge')}</button>
   </div>
 </Modal>
 

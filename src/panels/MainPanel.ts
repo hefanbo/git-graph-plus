@@ -129,7 +129,7 @@ export class MainPanel {
       push: { force: g('push.force', 'none'), setUpstream: g('push.setUpstream', true), allTags: g('push.allTags', false) },
       pull: { rebase: g('pull.rebase', true), stash: g('pull.stash', false) },
       fetch: { allRemotes: g('fetch.allRemotes', false) },
-      merge: { mode: g('merge.mode', 'default'), pushAfter: g('merge.pushAfter', false), deleteSource: g('merge.deleteSource', false) },
+      merge: { mode: g('merge.mode', 'default'), pushAfter: g('merge.pushAfter', false), deleteSource: g('merge.deleteSource', false), strategyOurs: g('merge.strategyOurs', false) },
       rebase: { autostash: g('rebase.autostash', false), pushAfter: g('rebase.pushAfter', false) },
       amend: { keepMessage: g('amend.keepMessage', true), resetDate: g('amend.resetDate', false), resetAuthor: g('amend.resetAuthor', false), only: g('amend.only', false), pushAfter: g('amend.pushAfter', false) },
       checkout: { dirty: g('checkout.dirty', 'keep') },
@@ -697,7 +697,7 @@ export class MainPanel {
           break;
         }
         case 'merge': {
-          await this.gitService.merge(message.payload.branch, { noFf: message.payload.noFf, ffOnly: message.payload.ffOnly, squash: message.payload.squash });
+          await this.gitService.merge(message.payload.branch, { noFf: message.payload.noFf, ffOnly: message.payload.ffOnly, squash: message.payload.squash, strategyOurs: message.payload.strategyOurs });
           // Optional follow-ups. A merge creates a new commit (no history
           // rewrite) so the push needs no force. Both follow-ups are non-fatal:
           // the merge already succeeded, so surface failures separately.

@@ -2,7 +2,7 @@ export interface ModalDefaults {
   push: { force: 'none' | 'with-lease' | 'force'; setUpstream: boolean; allTags: boolean };
   pull: { rebase: boolean; stash: boolean };
   fetch: { allRemotes: boolean };
-  merge: { mode: 'default' | 'no-ff' | 'squash'; pushAfter: boolean; deleteSource: boolean };
+  merge: { mode: 'default' | 'no-ff' | 'squash'; pushAfter: boolean; deleteSource: boolean; strategyOurs: boolean };
   rebase: { autostash: boolean; pushAfter: boolean };
   amend: { keepMessage: boolean; resetDate: boolean; resetAuthor: boolean; only: boolean; pushAfter: boolean };
   checkout: { dirty: 'keep' | 'stash' | 'discard' };
@@ -22,7 +22,7 @@ export const DEFAULT_MODAL_DEFAULTS: ModalDefaults = {
   push: { force: 'none', setUpstream: true, allTags: false },
   pull: { rebase: true, stash: false },
   fetch: { allRemotes: false },
-  merge: { mode: 'default', pushAfter: false, deleteSource: false },
+  merge: { mode: 'default', pushAfter: false, deleteSource: false, strategyOurs: false },
   rebase: { autostash: false, pushAfter: false },
   amend: { keepMessage: true, resetDate: false, resetAuthor: false, only: false, pushAfter: false },
   checkout: { dirty: 'keep' },

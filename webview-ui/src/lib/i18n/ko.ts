@@ -440,6 +440,8 @@ export const ko: Record<string, string> = {
   'merge.ffOnly': 'Fast-forward Only - 불가능하면 실패',
   'merge.squash': 'Squash - 모든 commit을 하나로 합침',
   'merge.squashWarning': '원본 commit이 히스토리에 <span class="modal-emph modal-emph--danger">보존되지 않습니다</span>.',
+  'merge.strategyOurs': '병합 전략 ours 사용',
+  'merge.strategyOursWarning': '대상 브랜치의 변경 사항은 <span class="modal-emph modal-emph--danger">무시</span>됩니다. 현재 브랜치 내용을 유지하는 병합 커밋이 생성됩니다.',
   'merge.checkingConflicts': 'Merge 충돌 확인 중',
   'merge.conflictWarning': 'Merge 시 충돌 발생({count}개)',
   'merge.noConflict': 'Merge 시 충돌 없음',

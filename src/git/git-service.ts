@@ -1097,9 +1097,15 @@ export class GitService {
     return { hasConflict: false, files: [], truncated };
   }
 
-  async merge(branch: string, options?: { noFf?: boolean; ffOnly?: boolean; squash?: boolean }): Promise<void> {
+  async merge(branch: string, options?: { noFf?: boolean; ffOnly?: boolean; squash?: boolean; strategyOurs?: boolean }): Promise<void> {
     this.assertSafeRef(branch, 'merge');
+    if (options?.squash && options?.strategyOurs) {
+      throw new GitError('Merge strategy "ours" cannot be combined with --squash', null, []);
+    }
     const args = ['merge', branch];
+    if (options?.strategyOurs) {
+      args.push('-s', 'ours');
+    }
     if (options?.noFf) {
       args.push('--no-ff');
     }

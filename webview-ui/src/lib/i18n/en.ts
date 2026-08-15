@@ -440,6 +440,8 @@ export const en: Record<string, string> = {
   'merge.ffOnly': 'Fast-forward Only - Fail if not possible',
   'merge.squash': 'Squash - Combine all commits into one',
   'merge.squashWarning': 'Original commits will <span class="modal-emph modal-emph--danger">not be preserved</span> in the history.',
+  'merge.strategyOurs': 'Use merge strategy: ours',
+  'merge.strategyOursWarning': 'The incoming branch\'s changes will be <span class="modal-emph modal-emph--danger">ignored</span>. A merge commit is created that keeps the current branch\'s content.',
   'merge.checkingConflicts': 'Checking for merge conflicts',
   'merge.conflictWarning': 'Merge conflict in {count} file(s)',
   'merge.noConflict': 'No merge conflicts',

@@ -29,7 +29,7 @@ describe('MergeBranchModal', () => {
       props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
     });
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, pushAfter: false, deleteSource: false });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, strategyOurs: false, pushAfter: false, deleteSource: false });
   });
 
   it('selecting no-ff via the ColorSelect dropdown sets noFf=true, squash=false', async () => {
@@ -44,7 +44,7 @@ describe('MergeBranchModal', () => {
     await fireEvent.click(noFfOption!);
     await tick();
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: true, ffOnly: false, squash: false, pushAfter: false, deleteSource: false });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: true, ffOnly: false, squash: false, strategyOurs: false, pushAfter: false, deleteSource: false });
   });
 
   it('selecting squash sets squash=true, noFf=false (mutually exclusive with no-ff)', async () => {
@@ -59,7 +59,7 @@ describe('MergeBranchModal', () => {
     await fireEvent.click(squashOption!);
     await tick();
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: true, pushAfter: false, deleteSource: false });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: true, strategyOurs: false, pushAfter: false, deleteSource: false });
   });
 
   it('forwards pushAfter flag to onMerge', async () => {
@@ -67,9 +67,9 @@ describe('MergeBranchModal', () => {
     const { container } = render(MergeBranchModal, {
       props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
     });
-    await fireEvent.click(container.querySelector<HTMLInputElement>('input[type="checkbox"]')!);
+    await fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1]!);
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, pushAfter: true, deleteSource: false });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, strategyOurs: false, pushAfter: true, deleteSource: false });
   });
 
   it('hides the delete-source checkbox unless canDeleteSource is true', () => {
@@ -77,7 +77,7 @@ describe('MergeBranchModal', () => {
       props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge: vi.fn() },
     });
     // Only the pushAfter checkbox is present by default.
-    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
   });
 
   it('forwards deleteSource flag when canDeleteSource is true', async () => {
@@ -86,10 +86,10 @@ describe('MergeBranchModal', () => {
       props: { source: 'feature/x', target: 'main', canDeleteSource: true, onClose: vi.fn(), onMerge },
     });
     const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    expect(boxes).toHaveLength(2);
-    await fireEvent.click(boxes[1]!); // deleteSource is the second checkbox
+    expect(boxes).toHaveLength(3);
+    await fireEvent.click(boxes[2]!); // deleteSource is the third checkbox
     await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
-    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, pushAfter: false, deleteSource: true });
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, strategyOurs: false, pushAfter: false, deleteSource: true });
   });
 
   it('shows a deletion warning only when deleteSource is checked', async () => {
@@ -100,7 +100,7 @@ describe('MergeBranchModal', () => {
     const hasWarn = () => Array.from(container.querySelectorAll('[role="alert"]')).some(el => el.textContent?.includes(warnText));
     expect(hasWarn()).toBe(false);
     const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
-    await fireEvent.click(boxes[1]!); // deleteSource
+    await fireEvent.click(boxes[2]!); // deleteSource
     await tick();
     expect(hasWarn()).toBe(true);
   });
@@ -123,12 +123,42 @@ describe('MergeBranchModal', () => {
   });
 
   it('initializes pushAfter checkbox from defaultsStore', async () => {
-    defaultsStore.current.merge = { mode: 'no-ff', pushAfter: true, deleteSource: false };
+    defaultsStore.current.merge = { mode: 'no-ff', pushAfter: true, deleteSource: false, strategyOurs: false };
     const { container } = render(MergeBranchModal, {
       props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge: vi.fn() },
     });
-    const pushAfterCheckbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    const pushAfterCheckbox = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1]!;
     expect(pushAfterCheckbox.checked).toBe(true);
+  });
+
+  it('checking strategy: ours sends strategyOurs=true and hides the merge-type selector', async () => {
+    const onMerge = vi.fn();
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
+    });
+    // strategyOurs is the first checkbox.
+    await fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[0]!);
+    await tick();
+    // The merge-type ColorSelect is hidden while `ours` is checked.
+    expect(container.querySelector('.color-select')).toBeNull();
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, strategyOurs: true, pushAfter: false, deleteSource: false });
+  });
+
+  it('strategy: ours overrides a previously selected squash', async () => {
+    const onMerge = vi.fn();
+    const { container } = render(MergeBranchModal, {
+      props: { source: 'feature/x', target: 'main', onClose: vi.fn(), onMerge },
+    });
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.color-select-btn')!);
+    const squashOption = Array.from(container.querySelectorAll<HTMLButtonElement>('.color-select-option'))
+      .find(o => o.textContent?.toLowerCase().includes('squash'));
+    await fireEvent.click(squashOption!);
+    await tick();
+    await fireEvent.click(container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[0]!);
+    await tick();
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('button.primary')!);
+    expect(onMerge).toHaveBeenCalledWith({ noFf: false, ffOnly: false, squash: false, strategyOurs: true, pushAfter: false, deleteSource: false });
   });
 
   it('hovering the conflict warning lists the predicted conflict files', async () => {
