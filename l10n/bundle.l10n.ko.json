@@ -103,6 +103,7 @@
   "revertedAndPushed": "{0}이(가) revert 후 push 되었습니다",
   "pushAfterRevertFailed": "Revert는 성공했지만 이후 push에 실패했습니다: {0}",
   "resetComplete": "{0}으(로) reset 되었습니다",
+  "restoredCommit": "{0}으(로) 복원되었습니다",
   "stashApplied": "Stash가 적용되었습니다",
   "stashPopped": "Stash가 적용되고 삭제되었습니다",
   "stashDropped": "Stash가 삭제되었습니다",

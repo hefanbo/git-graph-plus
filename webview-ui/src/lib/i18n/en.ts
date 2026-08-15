@@ -161,6 +161,7 @@ export const en: Record<string, string> = {
   'graph.rebaseTo': "Rebase '{branch}' to Here",
   'graph.interactiveRebaseTo': "Interactively Rebase '{branch}' to Here",
   'graph.resetBranchToHere': "Reset '{branch}' to Here",
+  'graph.restoreCommit': 'Restore Commit',
   'graph.checkoutCommit': 'Checkout Commit',
   'graph.cherryPickCommit': 'Cherry-Pick Commit',
   'graph.revertCommit': 'Revert Commit',
@@ -472,6 +473,12 @@ export const en: Record<string, string> = {
   'reset.hardOption': 'Hard - Discard all changes',
   'reset.hardWarning': 'All uncommitted changes will be <span class="modal-emph modal-emph--danger">permanently lost</span>.',
   'reset.resetBtn': 'Reset',
+
+  // Restore modal
+  'restore.title': 'Restore Commit',
+  'restore.desc': 'Restore the working tree and index to match this commit. HEAD and branch pointers are not moved.',
+  'restore.warning': 'All uncommitted and staged changes will be <span class="modal-emph modal-emph--danger">permanently overwritten</span> with this commit\'s content.',
+  'restore.restore': 'Restore',
 
   // Common labels
   'common.commit': 'Commit:',

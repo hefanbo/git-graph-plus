@@ -103,6 +103,7 @@
   "revertedAndPushed": "已还原 {0} 并完成 push",
   "pushAfterRevertFailed": "还原成功，但后续 push 失败：{0}",
   "resetComplete": "已重置到 {0}",
+  "restoredCommit": "已恢复 {0}",
   "stashApplied": "储藏已应用",
   "stashPopped": "储藏已应用并删除",
   "stashDropped": "储藏已删除",

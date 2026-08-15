@@ -17,6 +17,7 @@
   import RebaseBranchModal from '../modals/RebaseBranchModal.svelte';
   import CherryPickModal from '../modals/CherryPickModal.svelte';
   import RevertModal from '../modals/RevertModal.svelte';
+  import RestoreModal from '../modals/RestoreModal.svelte';
   import AutosquashCommitModal from '../modals/AutosquashCommitModal.svelte';
   import ResetModal from '../modals/ResetModal.svelte';
   import CheckoutCommitModal from '../modals/CheckoutCommitModal.svelte';
@@ -230,6 +231,9 @@
   let showRevertModal = $state(false);
   let revertTarget = $state('');
 
+  let showRestoreModal = $state(false);
+  let restoreTarget = $state('');
+
   // Single target for the shared fixup/squash modal; null when closed.
   let autosquashTarget = $state<{ hash: string; subject: string; mode: 'fixup' | 'squash' } | null>(null);
 
@@ -277,7 +281,7 @@
   // after the synchronous menu onClose), so it must be ORed in directly here.
   const anyModalOpen = $derived(
     modalStore.anyOpen
-    || showResetModal || showRebaseModal || showCherryPickModal || showRevertModal || !!autosquashTarget
+    || showResetModal || showRebaseModal || showCherryPickModal || showRevertModal || showRestoreModal || !!autosquashTarget
     || showCheckoutCommitModal || showFastForwardModal || showPullAfterCheckoutModal || showWorktreeBlockedModal
     || !!squashChain || !!multiCherryPickTargets || !!interactiveRebaseBase
     || !!rebaseTargetBranches || !!rebaseDirtyBranch,
@@ -1116,6 +1120,10 @@
       // ── Commit operations ──
       groups.push([
         {
+          label: t('graph.restoreCommit'),
+          action: () => { restoreTarget = commit.hash; showRestoreModal = true; },
+        },
+        {
           label: t('graph.checkoutCommit'),
           action: () => {
             const localRefs = commit.refs.filter(r => r.type === 'head' || r.type === 'branch');
@@ -1817,6 +1825,14 @@
     branch={branchStore.currentBranch?.name ?? 'current branch'}
     onClose={() => { showRevertModal = false; contextMenuHash = null; }}
     onRevert={({ noCommit, pushAfter }) => { showRevertModal = false; contextMenuHash = null; vscode.postMessage({ type: 'revert', payload: { commit: revertTarget, noCommit, pushAfter } }); }}
+  />
+{/if}
+
+{#if showRestoreModal}
+  <RestoreModal
+    commit={restoreTarget}
+    onClose={() => { showRestoreModal = false; contextMenuHash = null; }}
+    onRestore={() => { showRestoreModal = false; contextMenuHash = null; vscode.postMessage({ type: 'restore', payload: { commit: restoreTarget } }); }}
   />
 {/if}
 

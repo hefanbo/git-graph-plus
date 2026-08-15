@@ -161,6 +161,7 @@ export const ko: Record<string, string> = {
   'graph.rebaseTo': "'{branch}'을(를) 여기로 Rebase",
   'graph.interactiveRebaseTo': "'{branch}'을(를) 여기로 Interactive Rebase",
   'graph.resetBranchToHere': "'{branch}'을(를) 여기로 Reset",
+  'graph.restoreCommit': 'Restore Commit',
   'graph.checkoutCommit': 'Checkout Commit',
   'graph.cherryPickCommit': 'Cherry-Pick Commit',
   'graph.revertCommit': 'Revert Commit',
@@ -472,6 +473,12 @@ export const ko: Record<string, string> = {
   'reset.hardOption': 'Hard - 모든 변경 사항 삭제',
   'reset.hardWarning': '커밋되지 않은 모든 변경 사항이 <span class="modal-emph modal-emph--danger">영구적으로 손실</span>됩니다.',
   'reset.resetBtn': 'Reset',
+
+  // Restore modal
+  'restore.title': 'Restore Commit',
+  'restore.desc': '이 커밋 내용으로 작업 트리와 인덱스를 복원합니다. HEAD와 브랜치 포인터는 이동하지 않습니다.',
+  'restore.warning': '커밋되지 않은 변경 사항과 스테이징된 변경 사항이 이 커밋의 내용으로 <span class="modal-emph modal-emph--danger">영구적으로 덮어써집니다</span>.',
+  'restore.restore': 'Restore',
 
   // Common labels
   'common.commit': '커밋:',

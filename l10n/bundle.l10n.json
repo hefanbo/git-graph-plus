@@ -103,6 +103,7 @@
   "revertedAndPushed": "Reverted {0} and pushed",
   "pushAfterRevertFailed": "Revert succeeded, but the follow-up push failed: {0}",
   "resetComplete": "Reset to {0}",
+  "restoredCommit": "Restored {0}",
   "stashApplied": "Stash applied",
   "stashPopped": "Stash popped",
   "stashDropped": "Stash dropped",

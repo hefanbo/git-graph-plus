@@ -161,6 +161,7 @@ export const zh: Record<string, string> = {
   'graph.rebaseTo': "将 '{branch}' 变基到此处",
   'graph.interactiveRebaseTo': "将 '{branch}' 交互式变基到此处",
   'graph.resetBranchToHere': "将 '{branch}' 重置到此处",
+  'graph.restoreCommit': '恢复提交',
   'graph.checkoutCommit': '检出提交',
   'graph.cherryPickCommit': '遴选提交',
   'graph.revertCommit': '还原提交',
@@ -472,6 +473,12 @@ export const zh: Record<string, string> = {
   'reset.hardOption': '硬重置 - 丢弃所有更改',
   'reset.hardWarning': '所有未提交的更改将<span class="modal-emph modal-emph--danger">永久丢失</span>。',
   'reset.resetBtn': '重置',
+
+  // Restore modal
+  'restore.title': '恢复提交',
+  'restore.desc': '将工作区与暂存区恢复到该提交的内容。HEAD 与分支指针不会移动。',
+  'restore.warning': '所有未提交与已暂存的更改将被该提交的内容<span class="modal-emph modal-emph--danger">永久覆盖</span>。',
+  'restore.restore': '恢复',
 
   // Common labels
   'common.commit': '提交：',

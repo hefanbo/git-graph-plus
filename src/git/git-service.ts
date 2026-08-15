@@ -1798,6 +1798,17 @@ export class GitService {
   }
 
   /**
+   * Restore the working tree and index to match a commit, without moving HEAD
+   * or any branch pointer (`git restore --source=<hash> :/`). The pathspec `:/`
+   * targets the whole repo. Destructive: any uncommitted or staged changes are
+   * overwritten with the commit's content.
+   */
+  async restoreCommit(hash: string): Promise<void> {
+    this.assertSafeRef(hash, 'restore');
+    await this.exec(['restore', `--source=${hash}`, ':/']);
+  }
+
+  /**
    * Amend the last commit (HEAD). Folds whatever is currently staged into HEAD
    * (standard `git commit --amend`); unstaged changes are left untouched.
    * - keepMessage → `--no-edit` (reuse the existing message)

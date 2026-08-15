@@ -1160,6 +1160,13 @@ export class MainPanel {
           await this.refreshAll();
           break;
         }
+        case 'restore': {
+          await this.gitService.restoreCommit(message.payload.commit);
+          this.post({ type: 'operationComplete', payload: { operation: 'restore', success: true } });
+          vscode.window.showInformationMessage(vscode.l10n.t('restoredCommit', message.payload.commit.substring(0, 7)));
+          await this.refreshAll();
+          break;
+        }
         case 'commitFixup': {
           await this.gitService.commitFixup(message.payload.commit);
           this.post({ type: 'operationComplete', payload: { operation: 'commitFixup', success: true } });
