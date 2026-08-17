@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { writeFileSync, existsSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { GitService } from '../../git-service';
 import { TempRepo, commit, createTempRepo, currentBranch, head, runGit } from './helpers';
@@ -317,6 +317,29 @@ describe('GitService integration — state mutations', () => {
       // --keep-index restores the staged content to the working tree.
       const { staged } = await svc.getUncommittedDiff();
       expect(staged.map(s => s.path)).toContain('a.txt');
+    });
+
+    it('stashRestoreFiles restores an untracked stash file instead of deleting it', async () => {
+      // Repo shape: `main` has no X.txt; `side` branches off and commits X.txt.
+      // Untracked X.txt stashed on main lands in the stash's third parent, so
+      // the stash's main tree has no X.txt entry at all.
+      commit(repo.path, 'base', { 'base.txt': 'b\n' });
+      runGit(repo.path, ['checkout', '-b', 'side']);
+      commit(repo.path, 'side commit', { 'X.txt': 'tracked-X\n' });
+      runGit(repo.path, ['checkout', 'main']);
+      writeFileSync(join(repo.path, 'X.txt'), 'untracked-X-in-stash\n');
+      await svc.stashSave('with untracked', true);
+
+      // Move to `side`, where X.txt is a tracked file in the current commit.
+      runGit(repo.path, ['checkout', 'side']);
+      expect(readFileSync(join(repo.path, 'X.txt'), 'utf8')).toBe('tracked-X\n');
+
+      await svc.stashRestoreFiles(0, ['X.txt']);
+
+      // Restoring from the main stash tree would have deleted X.txt (the
+      // stash's main tree lacks it); restoring from the untracked snapshot
+      // must bring back the stashed untracked content.
+      expect(readFileSync(join(repo.path, 'X.txt'), 'utf8')).toBe('untracked-X-in-stash\n');
     });
   });
 

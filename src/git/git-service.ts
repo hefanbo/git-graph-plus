@@ -1965,7 +1965,48 @@ export class GitService {
     for (const p of paths) {
       this.assertSafePath(p, 'stash restore');
     }
-    await this.exec(['restore', `--source=stash@{${index}}`, '--', ...paths]);
+
+    const stashRef = `stash@{${index}}`;
+
+    // A stash created with --include-untracked keeps its untracked files in a
+    // separate third parent commit, not in the main stash tree. Restoring such
+    // a file from the main tree makes `git restore` treat the path as "deleted
+    // in the source" — when the file is tracked in the current commit the
+    // working-tree file is removed. Restore untracked files from their own
+    // snapshot instead; everything else keeps the main stash tree as source.
+    const untrackedParent = await this.stashUntrackedParent(stashRef);
+    if (untrackedParent) {
+      const raw = await this.exec(['ls-tree', '-r', '--name-only', untrackedParent], { silent: true });
+      const untrackedSet = new Set(raw.trim().split('\n').filter(Boolean));
+      const untracked = paths.filter(p => untrackedSet.has(p));
+      const tracked = paths.filter(p => !untrackedSet.has(p));
+      if (untracked.length > 0) {
+        await this.exec(['restore', `--source=${untrackedParent}`, '--', ...untracked]);
+      }
+      if (tracked.length > 0) {
+        await this.exec(['restore', `--source=${stashRef}`, '--', ...tracked]);
+      }
+      return;
+    }
+
+    await this.exec(['restore', `--source=${stashRef}`, '--', ...paths]);
+  }
+
+  /**
+   * The third parent of a stash commit, when present, is the untracked-file
+   * snapshot created by `git stash --include-untracked` (a stash is an internal
+   * merge commit: parent 1 = base, parent 2 = index snapshot, parent 3 =
+   * untracked snapshot). Returns its hash, or null when the stash has no
+   * untracked snapshot.
+   */
+  private async stashUntrackedParent(stashRef: string): Promise<string | null> {
+    this.assertSafeRef(stashRef, 'stash restore');
+    try {
+      const raw = await this.exec(['rev-parse', '--verify', `${stashRef}^3`], { silent: true });
+      return raw.trim() || null;
+    } catch {
+      return null;
+    }
   }
 
   async cherryPick(hashes: string | string[], options?: { noCommit?: boolean }): Promise<void> {

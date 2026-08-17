@@ -750,4 +750,30 @@ describe('GitService — stashRestoreFiles', () => {
   it('rejects an unsafe path', async () => {
     await expect(svc.stashRestoreFiles(0, ['../escape'])).rejects.toThrow('Unsafe path');
   });
+
+  it('restores untracked files from the stash third parent, tracked files from the stash itself', async () => {
+    const exec = vi.spyOn(svc as any, 'exec').mockImplementation(async (...args: unknown[]) => {
+      const cmd = args[0] as string[];
+      if (cmd[0] === 'rev-parse') return 'a1b2c3d4\n';
+      if (cmd[0] === 'ls-tree') return 'src/untracked.txt\nnotes/new.md\n';
+      return '';
+    });
+    await svc.stashRestoreFiles(0, ['src/untracked.txt', 'src/tracked.ts']);
+    expect(exec).toHaveBeenCalledWith(['rev-parse', '--verify', 'stash@{0}^3'], { silent: true });
+    expect(exec).toHaveBeenCalledWith(['ls-tree', '-r', '--name-only', 'a1b2c3d4'], { silent: true });
+    expect(exec).toHaveBeenCalledWith(['restore', '--source=a1b2c3d4', '--', 'src/untracked.txt']);
+    expect(exec).toHaveBeenCalledWith(['restore', '--source=stash@{0}', '--', 'src/tracked.ts']);
+  });
+
+  it('restores all paths from the stash itself when every path is tracked', async () => {
+    const exec = vi.spyOn(svc as any, 'exec').mockImplementation(async (...args: unknown[]) => {
+      const cmd = args[0] as string[];
+      if (cmd[0] === 'rev-parse') return 'a1b2c3d4\n';
+      if (cmd[0] === 'ls-tree') return 'src/untracked.txt\n';
+      return '';
+    });
+    await svc.stashRestoreFiles(0, ['src/tracked.ts']);
+    expect(exec).not.toHaveBeenCalledWith(['restore', '--source=a1b2c3d4', '--', 'src/tracked.ts']);
+    expect(exec).toHaveBeenCalledWith(['restore', '--source=stash@{0}', '--', 'src/tracked.ts']);
+  });
 });
