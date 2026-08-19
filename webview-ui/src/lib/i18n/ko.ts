@@ -127,6 +127,7 @@ export const ko: Record<string, string> = {
   'graph.sha': 'SHA',
   'graph.notPushed': '푸시되지 않음',
   'graph.remoteOnly': '원격에만 존재',
+  'graph.grafted': '단절됨',
   'graph.amendRef': "'{ref}'을(를) Amend",
   'graph.stash': '변경 사항 Stash',
   'graph.amendCommit': 'Amend Commit',

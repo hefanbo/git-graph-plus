@@ -127,6 +127,7 @@ export const en: Record<string, string> = {
   'graph.sha': 'SHA',
   'graph.notPushed': 'Not pushed',
   'graph.remoteOnly': 'Remote only',
+  'graph.grafted': 'Grafted',
   'graph.amendRef': "Amend '{ref}'",
   'graph.stash': 'Stash Changes',
   'graph.amendCommit': 'Amend Commit',

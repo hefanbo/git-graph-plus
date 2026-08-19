@@ -128,6 +128,18 @@ export function parseShowRef(raw: string): ShowRefData {
   return data;
 }
 
+/** Parse the contents of `.git/shallow` into a set of full commit hashes.
+ *  Each line is a hash of a shallow-boundary ("grafted") commit whose parents
+ *  are not present locally. Returns an empty set for a missing/empty file. */
+export function parseShallowFile(raw: string): Set<string> {
+  const set = new Set<string>();
+  for (const line of raw.split('\n')) {
+    const hash = line.trim();
+    if (hash) set.add(hash);
+  }
+  return set;
+}
+
 /** Attach refs to already-parsed commits by matching each ref's hash against
  *  the commit hashes. Unlike parsing git's `%D` decorations, this never sees
  *  git's synthetic `grafted` marker for a shallow-clone boundary commit, so it

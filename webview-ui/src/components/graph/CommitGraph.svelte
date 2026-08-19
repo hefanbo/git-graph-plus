@@ -1450,6 +1450,22 @@
           {@const dotCommit = displayCommits[startIndex + i]}
           {#if dotCommit?.hash === 'UNCOMMITTED'}
             <circle cx={dx} cy={dy} r={5} fill="none" stroke="#888888" stroke-width="1.5" stroke-dasharray="3 2" />
+          {:else if dot.type === 'grafted'}
+            {#if dotCommit?.refs.some(r => r.type === 'head')}
+              <!-- Grafted AND current HEAD (e.g. depth-1 clone): hollow so the
+                   branch-color outline still conveys "current branch". -->
+              <path
+                d={`M ${dx - 5} ${dy - 3} L ${dx} ${dy + 4} L ${dx + 5} ${dy - 3} Z`}
+                fill="var(--bg-primary, #1e1e1e)"
+                stroke={dotColor}
+                stroke-width="2"
+              />
+            {:else}
+              <path
+                d={`M ${dx - 5} ${dy - 3} L ${dx} ${dy + 4} L ${dx + 5} ${dy - 3} Z`}
+                fill={dotColor}
+              />
+            {/if}
           {:else if dot.type === 'head'}
             <circle cx={dx} cy={dy} r={5} fill="var(--bg-primary, #1e1e1e)" stroke={dotColor} stroke-width="2" />
           {:else if dot.type === 'merge'}
@@ -1494,7 +1510,7 @@
             onclick={(e) => handleRowClick(commit, e)}
             ondblclick={() => handleRowDblClick(commit)}
             oncontextmenu={(e) => { if (commit.hash === 'UNCOMMITTED') onUncommittedContextMenu(e); else onCommitContextMenu(e, commit); }}
-            use:tooltip={commit.hash === 'UNCOMMITTED' ? t('graph.clickToOpenScm') : ''}
+            use:tooltip={commit.hash === 'UNCOMMITTED' ? t('graph.clickToOpenScm') : (commit.grafted ? t('graph.grafted') : '')}
             role="row"
             tabindex={0}
             onkeydown={(e) => {

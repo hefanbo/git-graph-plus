@@ -29,7 +29,7 @@ export interface GraphDot {
   center: { x: number; y: number };
   color: number;
   colorOverride?: string;
-  type: 'default' | 'head' | 'merge';
+  type: 'default' | 'head' | 'merge' | 'grafted';
   localOnly: boolean;
   remoteTip: boolean;
 }
@@ -391,7 +391,11 @@ export function buildFullGraph(
     const isRemoteOnly = remoteOnlySet.has(commit.hash);
     const isLocalOnly = !pushedSet.has(commit.hash);
     let dotType: GraphDot['type'] = 'default';
-    if (commit.refs.some(r => r.type === 'head')) dotType = 'head';
+    // Grafted (shallow boundary) wins: the truncation signal is more important
+    // than the current-branch ring, even when the boundary commit is HEAD (e.g.
+    // a depth-1 clone).
+    if (commit.grafted) dotType = 'grafted';
+    else if (commit.refs.some(r => r.type === 'head')) dotType = 'head';
     else if (commit.parents.length > 1) dotType = 'merge';
     result.dots.push({ center: position, color: dotColor, colorOverride: dotColorOverride, type: dotType, localOnly: isLocalOnly, remoteTip: isRemoteOnly });
     dotPaths.push(major);

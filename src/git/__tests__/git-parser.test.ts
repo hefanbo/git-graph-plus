@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseLog, parseShowRef, annotateCommitsWithRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, splitUpstreamRef, mapSignatureStatus } from '../git-parser';
+import { parseLog, parseShowRef, parseShallowFile, annotateCommitsWithRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, splitUpstreamRef, mapSignatureStatus } from '../git-parser';
 import type { Commit } from '../types';
 
 
@@ -136,6 +136,23 @@ describe('parseShowRef', () => {
       'malformed line without hash',
     ].join('\n');
     expect(parseShowRef(raw).tags).toEqual([{ hash: '5555555', name: 'v2.0' }]);
+  });
+});
+
+describe('parseShallowFile', () => {
+  it('returns an empty set for empty input', () => {
+    expect(parseShallowFile('')).toEqual(new Set());
+    expect(parseShallowFile('   ')).toEqual(new Set());
+  });
+
+  it('collects every hash from `.git/shallow` lines', () => {
+    const raw = ['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'].join('\n');
+    expect(parseShallowFile(raw)).toEqual(new Set(['aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb']));
+  });
+
+  it('handles a trailing newline and blank lines', () => {
+    const raw = 'cccccccccccccccccccccccccccccccccccccccc\n\n';
+    expect(parseShallowFile(raw)).toEqual(new Set(['cccccccccccccccccccccccccccccccccccccccc']));
   });
 });
 

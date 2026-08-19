@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync, readFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { GitService } from '../../git-service';
@@ -28,6 +28,9 @@ describe('GitService integration — shallow clones', () => {
     const shallow = join(shallowPath, 'shallow');
     const headHash = runGit(shallow, ['rev-parse', 'HEAD']).trim();
     const boundary = runGit(shallow, ['rev-parse', 'HEAD~1']).trim();
+    // Guard that the clone really is shallow (a local-path clone silently
+    // ignores --depth, which would make this a non-test).
+    expect(readFileSync(join(shallowPath, 'shallow/.git/shallow'), 'utf8').split('\n')).toContain(boundary);
 
     const commits = await svc.log();
     expect(commits.length).toBeGreaterThan(0);
@@ -43,10 +46,12 @@ describe('GitService integration — shallow clones', () => {
     expect(headRow?.refs.some(r => r.type === 'remote-branch' && r.remote === 'origin' && r.name === 'main')).toBe(true);
 
     // The boundary commit has no refs at all — it is the truncated edge of
-    // history, not a branch tip.
+    // history, not a branch tip — but it IS flagged as grafted so the graph
+    // can draw the inverted-triangle dot.
     const boundaryRow = commits.find(c => c.hash === boundary);
     expect(boundaryRow).toBeDefined();
     expect(boundaryRow!.refs).toEqual([]);
+    expect(boundaryRow!.grafted).toBe(true);
   });
 
   it('resolves a genuinely-named "grafted" branch via its real ref', async () => {

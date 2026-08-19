@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
-import { writeFile, unlink } from 'fs/promises';
-import { join } from 'path';
+import { writeFile, readFile, unlink } from 'fs/promises';
+import { join, resolve } from 'path';
 import { randomUUID } from 'crypto';
 import { bufferStream, BufferOverflowError } from '../utils/buffer-stream';
 import { logger } from '../utils/logger';
@@ -21,7 +21,7 @@ const DEFAULT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
  *  `grafted` decoration for shallow-clone boundary commits can never be
  *  misread as a branch named "grafted". */
 const LOG_FORMAT = '%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%b';
-import { parseLog, parseShowRef, annotateCommitsWithRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, mapSignatureStatus } from './git-parser';
+import { parseLog, parseShowRef, parseShallowFile, annotateCommitsWithRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, mapSignatureStatus } from './git-parser';
 import { buildReversePatch } from './patch-builder';
 import type { Commit, BranchInfo, TagInfo, RemoteInfo, StashEntry, LogOptions, DiffData, WorktreeInfo, CommitSignature, UserDetails, LfsLocksState } from './types';
 
@@ -677,6 +677,7 @@ export class GitService {
     }
 
     await this.decorateRefs(commits);
+    await this.markGrafted(commits);
     return commits;
   }
 
@@ -695,6 +696,35 @@ export class GitService {
       this.exec(['rev-parse', '--abbrev-ref', 'HEAD'], { silent: true }).catch(() => ''),
     ]);
     annotateCommitsWithRefs(commits, parseShowRef(refRaw), headNameRaw.trim() || 'HEAD');
+    return commits;
+  }
+
+  /**
+   * Mark commits at a shallow-clone boundary (`grafted`). Their hashes are
+   * listed in `.git/shallow`; the graph draws them as inverted triangles so
+   * the user can see where history is truncated. `git rev-parse --git-path
+   * shallow` resolves the file through the commondir, so this is correct for
+   * linked worktrees and submodules too. Non-shallow repos simply skip it.
+   */
+  private async markGrafted(commits: Commit[]): Promise<Commit[]> {
+    if (commits.length === 0) return commits;
+    let shallowPathRaw = '';
+    try {
+      shallowPathRaw = (await this.exec(['rev-parse', '--git-path', 'shallow'], { silent: true })).trim();
+    } catch {
+      return commits;
+    }
+    if (!shallowPathRaw) return commits;
+    try {
+      const raw = await readFile(resolve(this.rootPath, shallowPathRaw), 'utf8');
+      const shallow = parseShallowFile(raw);
+      if (shallow.size === 0) return commits;
+      for (const c of commits) {
+        if (shallow.has(c.hash)) c.grafted = true;
+      }
+    } catch {
+      // No .git/shallow (not a shallow repo) or unreadable — nothing to mark.
+    }
     return commits;
   }
 

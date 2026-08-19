@@ -428,3 +428,30 @@ describe('buildFullGraph branch color override', () => {
     expect(full.paths.some(p => p.colorOverride === '#00FF00')).toBe(true);
   });
 });
+
+describe('buildFullGraph grafted (shallow boundary) dots', () => {
+  it('marks a grafted commit with the grafted dot type', () => {
+    const grafted = makeCommit('c2', ['c1']);
+    grafted.grafted = true;
+    const commits = [
+      makeCommit('c3', ['c2'], [{ type: 'branch', name: 'main' }]),
+      grafted,
+      makeCommit('c1', []),
+    ];
+    const graph = buildFullGraph(commits);
+    expect(graph.dots[1].type).toBe('grafted');
+    expect(graph.dots[0].type).toBe('default');
+  });
+
+  it('prefers grafted over the head ring when the boundary commit is HEAD', () => {
+    const grafted = makeCommit('c2', ['c1']);
+    grafted.grafted = true;
+    grafted.refs.push({ type: 'head', name: 'main' });
+    const commits = [
+      grafted,
+      makeCommit('c1', []),
+    ];
+    const graph = buildFullGraph(commits);
+    expect(graph.dots[0].type).toBe('grafted');
+  });
+});

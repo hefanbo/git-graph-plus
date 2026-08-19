@@ -7,6 +7,10 @@ export interface Commit {
   body: string;
   parents: string[];
   refs: Ref[];
+  /** True on commits at a shallow-clone boundary (hashes listed in
+   *  `.git/shallow`): their parents are missing locally, so the graph's
+   *  history is truncated here and the dot is drawn as an inverted triangle. */
+  grafted?: boolean;
   /** GPG/SSH signature verification status. Present only when the log was
    *  fetched with signature verification enabled (the graph setting); absent
    *  otherwise so the graph icon stays hidden and there is no perf cost. */
@@ -75,7 +79,7 @@ export interface GraphDotData {
   center: { x: number; y: number };
   color: number;
   colorOverride?: string;
-  type: 'default' | 'head' | 'merge' | 'remote-tip';
+  type: 'default' | 'head' | 'merge' | 'remote-tip' | 'grafted';
 }
 
 export interface CommitGraphData {

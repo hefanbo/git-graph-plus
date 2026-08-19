@@ -9,6 +9,9 @@ export interface Commit {
   body: string;
   parents: string[];
   refs: Ref[];
+  /** True on shallow-clone boundary commits (`.git/shallow`); drawn as an
+   *  inverted-triangle dot with a "Grafted" tooltip. */
+  grafted?: boolean;
   /** Present only when the graph is fetched with signature verification on. */
   signatureStatus?: SignatureStatus;
 }
@@ -67,7 +70,7 @@ export interface GraphDotData {
   center: { x: number; y: number };
   color: number;
   colorOverride?: string;
-  type: 'default' | 'head' | 'merge';
+  type: 'default' | 'head' | 'merge' | 'remote-tip' | 'grafted';
   localOnly: boolean;
   remoteTip: boolean;
 }
