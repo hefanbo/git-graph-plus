@@ -29,6 +29,7 @@ vi.mock('vscode', () => ({
   },
   window: {
     createTreeView: (id: string) => { H.treeViewsCreated.push(id); return { description: '', dispose() {} }; },
+    createOutputChannel: () => ({ appendLine: vi.fn(), dispose() {} }),
     showWarningMessage: vi.fn(),
     showInformationMessage: vi.fn(async () => undefined),
     showErrorMessage: vi.fn(),
