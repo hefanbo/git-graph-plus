@@ -298,10 +298,11 @@ export const ko: Record<string, string> = {
   'search.branchFilterTooltip': '특정 브랜치로 필터',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
-  'search.reflog': 'Reflog',
-  'search.reflogTooltip': 'Reflog 옵션',
+  'search.filter': '필터',
+  'search.filterTooltip': '필터 옵션',
   'search.reflogShowUnreachable': '도달 불가능한 커밋 표시',
   'search.reflogExpireUnreachable': '도달 불가능한 항목 만료',
+  'search.simplify': '단순화',
 
   // Activity log
   'activityLog.title': '활동 로그',

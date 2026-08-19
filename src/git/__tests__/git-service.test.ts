@@ -267,6 +267,36 @@ describe('GitService', () => {
     });
   });
 
+  describe('log simplifyByDecoration', () => {
+    let calls: string[][];
+
+    beforeEach(() => {
+      calls = [];
+      (service as any).cachedRemoteNames = [];
+      (service as any).remoteNamesCacheTime = Date.now();
+      mockExec(service, async (args) => { calls.push(args); return ''; });
+    });
+
+    it('passes --simplify-by-decoration when enabled', async () => {
+      await service.log({ simplifyByDecoration: true }).catch(() => {});
+      const logCall = calls.find(c => c[0] === 'log' && !c.includes('--no-walk'));
+      expect(logCall).toContain('--simplify-by-decoration');
+    });
+
+    it('omits --simplify-by-decoration by default', async () => {
+      await service.log({}).catch(() => {});
+      const logCall = calls.find(c => c[0] === 'log' && !c.includes('--no-walk'));
+      expect(logCall).not.toContain('--simplify-by-decoration');
+    });
+
+    it('composes with the branch/remote glob walk starts', async () => {
+      await service.log({ simplifyByDecoration: true }).catch(() => {});
+      const logCall = calls.find(c => c[0] === 'log' && !c.includes('--no-walk'));
+      expect(logCall).toContain('--glob=refs/heads');
+      expect(logCall).toContain('--simplify-by-decoration');
+    });
+  });
+
   describe('ref safety validation', () => {
     it('checkout rejects ref starting with -', async () => {
       await expect(service.checkout('-foo')).rejects.toThrow("must not start with '-'");

@@ -298,10 +298,11 @@ export const en: Record<string, string> = {
   'search.branchFilterTooltip': 'Filter by specific branch',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
-  'search.reflog': 'Reflog',
-  'search.reflogTooltip': 'Reflog options',
+  'search.filter': 'Filter',
+  'search.filterTooltip': 'Filter options',
   'search.reflogShowUnreachable': 'Show unreachable',
   'search.reflogExpireUnreachable': 'Expire unreachable',
+  'search.simplify': 'Simplify',
 
   // Activity log
   'activityLog.title': 'Activity Log',

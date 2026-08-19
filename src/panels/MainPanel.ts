@@ -5,7 +5,7 @@ import { GitService, GitError } from '../git/git-service';
 import { formatGitError, isAuthFailure, transportFromRemoteUrl } from '../git/git-error-formatter';
 import { splitUpstreamRef } from '../git/git-parser';
 import { samePath } from '../utils/path';
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadMore, readInteractiveRebaseMode } from '../utils/config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadMore, readSimplifyByDecoration, readInteractiveRebaseMode } from '../utils/config';
 import { buildClassicRebaseCommand } from '../git/classic-rebase';
 import { buildFullGraph } from '../git/git-graph-builder';
 import { compileBranchColorRules, makeBranchColorResolver } from '../git/branch-color-resolver';
@@ -30,6 +30,7 @@ export class MainPanel {
   private static readonly viewType = 'gitGraphPlus';
   private static savedRemoteFilter: string[] | undefined = undefined;
   private static savedBranchFilter: string[] | undefined = undefined;
+  private static savedSimplifyByDecoration: boolean | undefined = undefined;
   private static extraEnv: Record<string, string> | undefined = undefined;
   // Shared across panels in this extension host. The on-disk cache lives under
   // globalStorage so every VS Code window reuses the same avatars instead of
@@ -48,6 +49,7 @@ export class MainPanel {
   private currentRemoteFilter: string[] | undefined = undefined;
   private currentBranchFilter: string[] | undefined = undefined;
   private currentIncludeReflog = false;
+  private currentSimplifyByDecoration = false;
   private isFirstGetLog = true;
   private logSequence = 0;
   private searchSequence = 0;
@@ -261,6 +263,11 @@ export class MainPanel {
     this.post({ type: 'setGraphColors', payload: { colors: this.readGraphColors() } });
     this.post({ type: 'setLoadMoreCount', payload: { count: readLoadMoreCommitCount() } });
     this.post({ type: 'setAutoLoadMore', payload: { enabled: readAutoLoadMore() } });
+    // Seed the Simplify toggle with the last session's value (if any) so the
+    // toggle survives panel reopen within this extension process; otherwise
+    // fall back to the setting. Only pushed here — not on config change, so a
+    // mid-session edit of the setting can't clobber the user's live toggle.
+    this.post({ type: 'setSimplifyByDecoration', payload: { enabled: MainPanel.savedSimplifyByDecoration ?? readSimplifyByDecoration() } });
     this.post({ type: 'setInteractiveRebaseMode', payload: { mode: readInteractiveRebaseMode() } });
     void this.postCommitLinkRules();
 
@@ -430,11 +437,19 @@ export class MainPanel {
           const effectiveBranchFilter = this.isFirstGetLog && message.payload.branches === undefined
             ? MainPanel.savedBranchFilter
             : message.payload.branches;
+          // Same first-load default for the Simplify toggle: the webview sends its
+          // live state on every non-initial request, but on the very first getLog
+          // its $state may not have received the setSimplifyByDecoration seed yet,
+          // so fall back to the saved/config default here (mirrors the filter
+          // substitution above). Must run before isFirstGetLog is cleared.
+          const effectiveSimplifyByDecoration = message.payload.simplifyByDecoration
+            ?? (this.isFirstGetLog ? (MainPanel.savedSimplifyByDecoration ?? readSimplifyByDecoration()) : false);
           this.isFirstGetLog = false;
           this.currentRemoteFilter = effectiveFilter;
           this.currentBranchFilter = effectiveBranchFilter;
           this.currentIncludeReflog = message.payload.includeReflog ?? false;
-          const logPayload = { ...message.payload, remoteFilter: effectiveFilter, branches: effectiveBranchFilter, includeReflog: this.currentIncludeReflog, limit: requestedLimit + 1, sortOrder, includeSignature };
+          this.currentSimplifyByDecoration = effectiveSimplifyByDecoration;
+          const logPayload = { ...message.payload, remoteFilter: effectiveFilter, branches: effectiveBranchFilter, includeReflog: this.currentIncludeReflog, simplifyByDecoration: this.currentSimplifyByDecoration, limit: requestedLimit + 1, sortOrder, includeSignature };
           const seq = ++this.logSequence;
           const [allFetched, logBranches] = await Promise.all([
             this.gitService.log(logPayload),
@@ -1841,7 +1856,8 @@ export class MainPanel {
       // repo-unrelated "demo"-looking graph.
       const remoteFilter = this.isFirstGetLog ? MainPanel.savedRemoteFilter : this.currentRemoteFilter;
       const branchFilter = this.isFirstGetLog ? MainPanel.savedBranchFilter : this.currentBranchFilter;
-      const logArgs = { limit: refreshLimit + 1, sortOrder, remoteFilter, branches: branchFilter, includeReflog: this.currentIncludeReflog, includeSignature };
+      const simplifyByDecoration = this.isFirstGetLog ? (MainPanel.savedSimplifyByDecoration ?? readSimplifyByDecoration()) : this.currentSimplifyByDecoration;
+      const logArgs = { limit: refreshLimit + 1, sortOrder, remoteFilter, branches: branchFilter, includeReflog: this.currentIncludeReflog, simplifyByDecoration, includeSignature };
 
       const buildLogData = (allFetched: Awaited<ReturnType<typeof this.gitService.log>>, branches: Awaited<ReturnType<typeof this.gitService.branches>>) => {
         const hasMore = allFetched.length > refreshLimit;
@@ -2050,6 +2066,7 @@ export class MainPanel {
     this.disposed = true;
     MainPanel.savedRemoteFilter = this.currentRemoteFilter;
     MainPanel.savedBranchFilter = this.currentBranchFilter;
+    MainPanel.savedSimplifyByDecoration = this.currentSimplifyByDecoration;
     // Drop any modal request that was queued for this panel but never delivered
     // (panel closed before the webview was ready). A fresh panel opened later
     // for an unrelated reason should not surface a stale modal.

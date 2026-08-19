@@ -186,6 +186,11 @@ export interface LogOptions {
    *  (abandoned by rebase/reset/branch delete) appear in the graph. Only
    *  applies on the unfiltered first page, mirroring the stash base hashes. */
   includeReflog?: boolean;
+  /** When true, pass `--simplify-by-decoration` to `git log` so only commits
+   *  referenced by a ref (branch/remote/HEAD/tag) are shown — the intermediate
+   *  non-decorated commits are pruned, leaving a "branch skeleton". Tags count
+   *  as decorations (matching the always-visible tags in the graph). */
+  simplifyByDecoration?: boolean;
 }
 
 export interface LfsLock {

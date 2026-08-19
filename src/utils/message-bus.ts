@@ -27,7 +27,7 @@ export interface ModalDefaults {
 
 // Messages from Webview → Extension
 export type WebviewMessage =
-  | { type: 'getLog'; payload: { branch?: string; branches?: string[]; limit?: number; skip?: number; remoteFilter?: string[]; includeReflog?: boolean } }
+  | { type: 'getLog'; payload: { branch?: string; branches?: string[]; limit?: number; skip?: number; remoteFilter?: string[]; includeReflog?: boolean; simplifyByDecoration?: boolean } }
   | { type: 'getBranches' }
   | { type: 'getRepoList' }
   | { type: 'checkDirty'; payload?: { requestId?: string } }
@@ -164,6 +164,7 @@ export type ExtensionMessage =
   | { type: 'setDefaults'; payload: ModalDefaults }
   | { type: 'setLoadMoreCount'; payload: { count: number } }
   | { type: 'setAutoLoadMore'; payload: { enabled: boolean } }
+  | { type: 'setSimplifyByDecoration'; payload: { enabled: boolean } }
   | { type: 'setBadgeBarThickness'; payload: { width: number } }
   | { type: 'setGraphColors'; payload: { colors: string[] } }
   | { type: 'setCommitLinkRules'; payload: { rules: LinkRule[] } }

@@ -47,6 +47,16 @@ export function readAutoLoadMore(): boolean {
 }
 
 /**
+ * Reads `gitGraphPlus.simplifyByDecoration` — the default state of the
+ * **Simplify** toggle in the graph's filter bar. When enabled, only commits
+ * referenced by a branch/remote/HEAD/tag are shown in the graph. Defaults to
+ * false. Within a session the live toggle overrides this.
+ */
+export function readSimplifyByDecoration(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('simplifyByDecoration', false);
+}
+
+/**
  * Reads `gitGraphPlus.interactiveRebase.mode` — whether interactive rebase
  * opens the GUI editor (`ui`, default) or runs classic `git rebase -i` in the
  * integrated terminal (`classic`).

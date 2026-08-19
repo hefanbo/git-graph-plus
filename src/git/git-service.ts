@@ -522,6 +522,13 @@ export class GitService {
       // selected scope are correctly excluded.
     }
 
+    if (options?.simplifyByDecoration) {
+      // Keep only commits referenced by a ref; the walk-start points above
+      // (branch/remote/tag globs, or explicit branches) still seed the
+      // traversal, git just prunes the non-decorated intermediates.
+      args.push('--simplify-by-decoration');
+    }
+
     args.push(
       options?.sortOrder === 'topological' ? '--topo-order' :
       options?.sortOrder === 'date' ? '--date-order' :

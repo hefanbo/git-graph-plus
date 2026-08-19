@@ -18,6 +18,8 @@
     onJumpToHead?: () => void;
     includeReflog?: boolean;
     onIncludeReflogChange?: (value: boolean) => void;
+    simplifyByDecoration?: boolean;
+    onSimplifyByDecorationChange?: (value: boolean) => void;
     onExpireReflog?: () => void;
   }
 
@@ -34,6 +36,8 @@
     onJumpToHead = () => {},
     includeReflog = false,
     onIncludeReflogChange = () => {},
+    simplifyByDecoration = false,
+    onSimplifyByDecorationChange = () => {},
     onExpireReflog = () => {},
   }: Props = $props();
 
@@ -43,7 +47,7 @@
   let inputEl: HTMLInputElement | undefined = $state();
   let filterOpen = $state(false);
   let branchFilterOpen = $state(false);
-  let reflogOpen = $state(false);
+  let graphFilterOpen = $state(false);
   let branchQuery = $state('');
 
   const filterActive = $derived(remoteFilter.length > 0);
@@ -167,8 +171,8 @@
         branchFilterOpen = false;
       } else if (filterOpen) {
         filterOpen = false;
-      } else if (reflogOpen) {
-        reflogOpen = false;
+      } else if (graphFilterOpen) {
+        graphFilterOpen = false;
       } else {
         clear();
         inputEl?.blur();
@@ -375,26 +379,31 @@
   <div class="filter-wrap">
     <button
       class="filter-btn"
-      class:active={includeReflog}
-      onclick={() => { reflogOpen = !reflogOpen; }}
-      use:tooltip={t('search.reflogTooltip')}
+      class:active={includeReflog || simplifyByDecoration}
+      onclick={() => { graphFilterOpen = !graphFilterOpen; }}
+      use:tooltip={t('search.filterTooltip')}
     >
-      <i class="codicon codicon-history filter-btn-icon"></i>
-      <span class="filter-label">{t('search.reflog')}</span>
-      <i class="codicon {reflogOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'} chevron"></i>
+      <i class="codicon codicon-filter filter-btn-icon"></i>
+      <span class="filter-label">{t('search.filter')}</span>
+      <i class="codicon {graphFilterOpen ? 'codicon-chevron-up' : 'codicon-chevron-down'} chevron"></i>
     </button>
 
-    {#if reflogOpen}
+    {#if graphFilterOpen}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div class="backdrop" onclick={() => { reflogOpen = false; }}></div>
+      <div class="backdrop" onclick={() => { graphFilterOpen = false; }}></div>
       <div class="dropdown">
+        <button class="dd-item" class:active={simplifyByDecoration} onclick={() => onSimplifyByDecorationChange(!simplifyByDecoration)}>
+          <input type="checkbox" checked={simplifyByDecoration} readonly />
+          {t('search.simplify')}
+        </button>
+        <div class="dd-sep"></div>
         <button class="dd-item" class:active={includeReflog} onclick={() => onIncludeReflogChange(!includeReflog)}>
           <input type="checkbox" checked={includeReflog} readonly />
           {t('search.reflogShowUnreachable')}
         </button>
         <div class="dd-sep"></div>
-        <button class="dd-item dd-item--danger" onclick={() => { reflogOpen = false; onExpireReflog(); }}>
+        <button class="dd-item dd-item--danger" onclick={() => { graphFilterOpen = false; onExpireReflog(); }}>
           <span class="dd-item-icon"><i class="codicon codicon-trash"></i></span>
           {t('search.reflogExpireUnreachable')}
         </button>

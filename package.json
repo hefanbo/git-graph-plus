@@ -414,6 +414,11 @@
           "default": true,
           "markdownDescription": "When the graph has been scrolled to the bottom, automatically load more commits if they exist, instead of having to press the **Load more commits** button. Turn this off to only load more when the button is clicked."
         },
+        "gitGraphPlus.simplifyByDecoration": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Show branch topology by omitting commits that are not referenced by a branch or tag. This is the default state of the **Simplify** toggle in the graph's filter bar; the toggle overrides it for the current session."
+        },
         "gitGraphPlus.interactiveRebase.mode": {
           "type": "string",
           "enum": ["ui", "classic"],

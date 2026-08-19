@@ -298,10 +298,11 @@ export const zh: Record<string, string> = {
   'search.branchFilterTooltip': '按特定分支筛选',
   'search.allBranches': 'All',
   'search.filterBranches': 'Search',
-  'search.reflog': 'Reflog',
-  'search.reflogTooltip': 'Reflog 选项',
+  'search.filter': '筛选',
+  'search.filterTooltip': '筛选选项',
   'search.reflogShowUnreachable': '显示不可达提交',
   'search.reflogExpireUnreachable': '清理不可达提交',
+  'search.simplify': '简化',
 
   // Activity log
   'activityLog.title': '活动日志',
