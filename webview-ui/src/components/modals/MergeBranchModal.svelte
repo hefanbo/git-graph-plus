@@ -94,7 +94,6 @@
       <label class="modal-checkbox">
         <input type="checkbox" bind:checked={deleteSource} />
         <span>{t('merge.deleteSource', { branch: source })}</span>
-        <span class="modal-flag-badge">--delete</span>
       </label>
     </div>
   {/if}
