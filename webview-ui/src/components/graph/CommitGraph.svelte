@@ -290,7 +290,7 @@
     if (!anyModalOpen) { contextMenuHash = null; }
   });
 
-  function doCheckout(ref: string, pullAfter = false, dirtyPayload: Record<string, boolean> = {}, skipBehindCheck = false) {
+  function doCheckout(ref: string, pullAfter = false, dirtyPayload: Record<string, boolean> = {}) {
     // Check if branch is used by a worktree
     const wt = branchStore.worktrees.find(w => !w.isMain && w.branch === ref);
     if (wt) {
@@ -299,17 +299,6 @@
       worktreeBlockedPath = uiStore.homeDir && wt.path.startsWith(uiStore.homeDir) ? '~' + wt.path.substring(uiStore.homeDir.length) : wt.path;
       showWorktreeBlockedModal = true;
       return;
-    }
-    // Check if local branch is behind remote - offer fast-forward
-    if (!skipBehindCheck) {
-      const branch = localBranchMap.get(ref);
-      if (branch?.behind && branch.behind > 0 && branch.upstream) {
-        fastForwardLocalBranch = ref;
-        fastForwardRemote = branch.upstream;
-        pendingCheckoutDirtyPayload = dirtyPayload;
-        showFastForwardModal = true;
-        return;
-      }
     }
     pendingCheckoutPullAfter = pullAfter;
     // If dirtyPayload already resolved (from commit modal), skip dirty check
@@ -656,7 +645,7 @@
     if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
     const localRefs = commit.refs.filter(r => r.type === 'head' || r.type === 'branch');
     if (localRefs.length === 1) {
-      doCheckout(localRefs[0].name, false, {}, true);
+      doCheckout(localRefs[0].name);
     } else if (localRefs.length > 1) {
       openCheckoutCommitModal(commit.hash);
     } else {
@@ -903,6 +892,12 @@
           });
         } else {
           // Regular branch
+          const branchInfo = localBranchMap.get(branchName);
+          const canFastForward = branchName !== currentBranch
+            && !!branchInfo
+            && branchInfo.behind > 0
+            && branchInfo.ahead === 0
+            && !!branchInfo.upstream;
           items.push({
             label: branchName,
             icon: 'git-branch',
@@ -912,6 +907,16 @@
                 label: t('sidebar.checkout'),
                 action: () => doCheckout(branchName),
               },
+              ...(canFastForward ? [{
+                label: t('graph.fastForward'),
+                action: () => {
+                  const info = localBranchMap.get(branchName);
+                  if (!info?.upstream) return;
+                  fastForwardLocalBranch = branchName;
+                  fastForwardRemote = info.upstream;
+                  showFastForwardModal = true;
+                },
+              }] : []),
               {
                 label: t('graph.createWorktree'),
                 action: () => vscode.postMessage({ type: 'worktreeAddModalRequest', payload: { startPoint: branchName } }),
@@ -1549,13 +1554,13 @@
                       use:tooltip={trackedUpstream ?? ''}
                       ondblclick={(e) => {
                         e.stopPropagation();
-                        doCheckout(ref.name, false, {}, true);
+                        doCheckout(ref.name);
                       }}
                       role="button"
                       tabindex={0}
                       onkeydown={(e) => {
                         if (e.key === 'Enter') {
-                          doCheckout(ref.name, false, {}, true);
+                          doCheckout(ref.name);
                         }
                       }}
                     >
@@ -1588,18 +1593,11 @@
                     ondblclick={(e) => {
                       e.stopPropagation();
                       if (ref.type === 'remote-branch') {
-                        const trackingLocal = upstreamBranchMap.get(`${ref.remote}/${ref.name}`);
-                        if (trackingLocal) {
-                          fastForwardLocalBranch = trackingLocal.name;
-                          fastForwardRemote = `${ref.remote}/${ref.name}`;
-                          showFastForwardModal = true;
-                        } else {
-                          doCheckoutRemote(`${ref.remote}/${ref.name}`, ref.name);
-                        }
+                        doCheckoutRemote(`${ref.remote}/${ref.name}`, ref.name);
                       } else if (ref.type === 'tag' || ref.type === 'stash') {
                         openCheckoutCommitModal(ref.type === 'stash' ? commit.hash : ref.name);
                       } else {
-                        doCheckout(ref.name, false, {}, true);
+                        doCheckout(ref.name);
                       }
                     }}
                     role="button"
@@ -1607,18 +1605,11 @@
                     onkeydown={(e) => {
                       if (e.key === 'Enter') {
                         if (ref.type === 'remote-branch') {
-                          const trackingLocal = upstreamBranchMap.get(`${ref.remote}/${ref.name}`);
-                          if (trackingLocal) {
-                            fastForwardLocalBranch = trackingLocal.name;
-                            fastForwardRemote = `${ref.remote}/${ref.name}`;
-                            showFastForwardModal = true;
-                          } else {
-                            doCheckoutRemote(`${ref.remote}/${ref.name}`, ref.name);
-                          }
+                          doCheckoutRemote(`${ref.remote}/${ref.name}`, ref.name);
                         } else if (ref.type === 'tag' || ref.type === 'stash') {
                           openCheckoutCommitModal(ref.type === 'stash' ? commit.hash : ref.name);
                         } else {
-                          doCheckout(ref.name, false, {}, true);
+                          doCheckout(ref.name);
                         }
                       }
                     }}
@@ -1925,8 +1916,8 @@
     branchName={pullAfterCheckoutRef}
     behind={pullAfterCheckoutBehind}
     onClose={() => { showPullAfterCheckoutModal = false; }}
-    onCheckoutOnly={() => { showPullAfterCheckoutModal = false; doCheckout(pullAfterCheckoutRef, false, pendingCheckoutDirtyPayload, true); }}
-    onCheckoutAndPull={() => { showPullAfterCheckoutModal = false; doCheckout(pullAfterCheckoutRef, true, pendingCheckoutDirtyPayload, true); }}
+    onCheckoutOnly={() => { showPullAfterCheckoutModal = false; doCheckout(pullAfterCheckoutRef, false, pendingCheckoutDirtyPayload); }}
+    onCheckoutAndPull={() => { showPullAfterCheckoutModal = false; doCheckout(pullAfterCheckoutRef, true, pendingCheckoutDirtyPayload); }}
   />
 {/if}
 

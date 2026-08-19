@@ -189,6 +189,7 @@ export const ko: Record<string, string> = {
   'graph.deleteRemoteBranch': '리모트 브랜치 삭제',
   'graph.removeWorktree': 'Worktree 삭제',
   'graph.setUpstream': 'Upstream 설정',
+  'graph.fastForward': 'Fast-Forward',
 
   // Reset modal
   'reset.title': '{hash}(으)로 Reset',
