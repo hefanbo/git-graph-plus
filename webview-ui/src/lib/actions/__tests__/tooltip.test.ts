@@ -278,6 +278,59 @@ describe('tooltip action', () => {
     expect(tips[0].textContent).toBe('child');
   });
 
+  it('re-arms a fallback preempted by a nested tooltip once the pointer moves off it', () => {
+    // Mirrors the grafted row: the commit subject's tooltip preempts the row's
+    // "Grafted" fallback; moving from the subject onto the row (no nested
+    // tooltip) must bring the fallback back without re-entering the row.
+    const parent = document.createElement('span');
+    const child = document.createElement('a');
+    parent.appendChild(child);
+    document.body.appendChild(parent);
+    tooltip(parent, 'Grafted');
+    tooltip(child, 'full commit subject');
+
+    parent.dispatchEvent(enterEvent());
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()!.textContent).toBe('Grafted');
+
+    // Move into the child: it preempts the parent's fallback.
+    child.dispatchEvent(enterEvent());
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()!.textContent).toBe('full commit subject');
+
+    // Leave the child and move the pointer onto the parent where the child is
+    // not — elementFromPoint reports the parent, so the fallback re-arms.
+    const spy = vi.spyOn(document, 'elementFromPoint').mockReturnValue(parent);
+    child.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+    expect(getTooltipEl()).toBeNull();
+    parent.dispatchEvent(mouseEvent('mousemove', 100, 100));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()!.textContent).toBe('Grafted');
+    spy.mockRestore();
+  });
+
+  it('does not re-arm the fallback while a nested tooltip is still under the pointer', () => {
+    const parent = document.createElement('span');
+    const child = document.createElement('a');
+    parent.appendChild(child);
+    document.body.appendChild(parent);
+    tooltip(parent, 'Grafted');
+    tooltip(child, 'subject');
+
+    parent.dispatchEvent(enterEvent());
+    vi.advanceTimersByTime(500);
+    child.dispatchEvent(enterEvent());
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()!.textContent).toBe('subject');
+
+    // Pointer still over the child → the fallback must stay silent.
+    const spy = vi.spyOn(document, 'elementFromPoint').mockReturnValue(child);
+    parent.dispatchEvent(mouseEvent('mousemove', 100, 100));
+    vi.advanceTimersByTime(500);
+    expect(getTooltipEl()!.textContent).toBe('subject');
+    spy.mockRestore();
+  });
+
   it('hovering near the viewport edge flips position to the other side', () => {
     const node = makeNode();
     tooltip(node, 'flip me to the left');
