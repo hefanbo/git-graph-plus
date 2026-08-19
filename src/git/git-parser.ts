@@ -1,4 +1,4 @@
-import type { Commit, Ref, SignatureStatus, BranchInfo, TagInfo, RemoteInfo, StashEntry, DiffData, DiffHunk, DiffLine, WorktreeInfo } from './types';
+import type { Commit, SignatureStatus, BranchInfo, TagInfo, RemoteInfo, StashEntry, DiffData, DiffHunk, DiffLine, WorktreeInfo } from './types';
 
 /** Map git's `%G?` signature verification code to our 3-state enum.
  *  `G` = valid signature → good; `N` = no signature → none; everything else
@@ -23,16 +23,16 @@ export function mapSignatureStatus(code: string): SignatureStatus | undefined {
 const RECORD_SEP = '\x01\x02\x03';
 const FIELD_SEP = '\x00';
 
-export function parseLog(raw: string, remoteNames?: string[]): Commit[] {
+export function parseLog(raw: string): Commit[] {
   if (!raw.trim()) {
     return [];
   }
 
   const records = raw.split(RECORD_SEP).filter((r) => r.trim());
-  return records.map(r => parseCommitRecord(r, remoteNames));
+  return records.map(r => parseCommitRecord(r));
 }
 
-function parseCommitRecord(record: string, remoteNames?: string[]): Commit {
+function parseCommitRecord(record: string): Commit {
   const fields = record.split(FIELD_SEP);
 
   const hash = fields[0]?.trim() ?? '';
@@ -45,15 +45,13 @@ function parseCommitRecord(record: string, remoteNames?: string[]): Commit {
   const committerDate = fields[7] ?? '';
   const subject = fields[8] ?? '';
   const parentStr = fields[9] ?? '';
-  const refStr = fields[10]?.trim() ?? '';
-  const body = (fields[11] ?? '').trim();
+  const body = (fields[10] ?? '').trim();
   // Appended after %b only when the log was fetched with signature verification;
   // absent (undefined) otherwise. Body never contains a NUL, so this column stays
   // unambiguous even for multi-line bodies.
-  const signatureCode = fields[12];
+  const signatureCode = fields[11];
 
   const parents = parentStr.trim() ? parentStr.trim().split(' ') : [];
-  const refs = refStr ? parseRefs(refStr, remoteNames) : [];
 
   const commit: Commit = {
     hash,
@@ -63,7 +61,11 @@ function parseCommitRecord(record: string, remoteNames?: string[]): Commit {
     subject,
     body,
     parents,
-    refs,
+    // Refs are not part of the log record anymore: they are attached
+    // separately by matching hashes from `git show-ref` (see
+    // `annotateCommitsWithRefs`), so git's synthetic `grafted` decoration
+    // for shallow-clone boundary commits can never leak in as a branch.
+    refs: [],
   };
 
   if (signatureCode !== undefined) {
@@ -82,48 +84,93 @@ export function splitUpstreamRef(upstream: string): { remote: string; branch: st
   return { remote, branch: rest.join('/') };
 }
 
-export function parseRefs(refStr: string, remoteNames?: string[]): Ref[] {
-  if (!refStr.trim()) {
-    return [];
+/** Parsed form of `git show-ref -d --head` output. Refs are grouped by refs/
+ *  heads, refs/tags and refs/remotes namespace; the bare `HEAD` line carries
+ *  the resolved hash of the current checkout. */
+export interface ShowRefData {
+  head: string | null;
+  heads: Array<{ hash: string; name: string }>;
+  tags: Array<{ hash: string; name: string }>;
+  remotes: Array<{ hash: string; name: string }>;
+}
+
+/** Parse `git show-ref -d --head` output. Annotated tags emit a peeled
+ *  `refs/tags/<name>^{}` line carrying the underlying commit hash; the entry is
+ *  keyed by name so the peeled hash replaces the tag-object hash. Lightweight
+ *  tags (directly on a commit) get a single line and keep that hash. */
+export function parseShowRef(raw: string): ShowRefData {
+  const data: ShowRefData = { head: null, heads: [], tags: [], remotes: [] };
+  const tagIndex = new Map<string, number>();
+  for (const line of raw.split('\n')) {
+    if (!line) continue;
+    const space = line.indexOf(' ');
+    if (space < 0) continue;
+    const hash = line.substring(0, space);
+    const ref = line.substring(space + 1).trim();
+    if (ref === 'HEAD') {
+      data.head = hash;
+    } else if (ref.startsWith('refs/heads/')) {
+      data.heads.push({ hash, name: ref.substring('refs/heads/'.length) });
+    } else if (ref.startsWith('refs/tags/')) {
+      if (ref.endsWith('^{}')) {
+        const name = ref.substring('refs/tags/'.length, ref.length - 3);
+        const idx = tagIndex.get(name);
+        if (idx !== undefined) data.tags[idx].hash = hash;
+      } else {
+        const name = ref.substring('refs/tags/'.length);
+        tagIndex.set(name, data.tags.length);
+        data.tags.push({ hash, name });
+      }
+    } else if (ref.startsWith('refs/remotes/')) {
+      data.remotes.push({ hash, name: ref.substring('refs/remotes/'.length) });
+    }
+  }
+  return data;
+}
+
+/** Attach refs to already-parsed commits by matching each ref's hash against
+ *  the commit hashes. Unlike parsing git's `%D` decorations, this never sees
+ *  git's synthetic `grafted` marker for a shallow-clone boundary commit, so it
+ *  cannot be misread as a branch named "grafted"; a genuinely-named `grafted`
+ *  branch is still resolved through its real ref and hash. Refs are *appended*,
+ *  so pre-existing refs (e.g. the stash badge) are preserved.
+ *
+ *  `headName` is the current branch name from `rev-parse --abbrev-ref HEAD`,
+ *  or `HEAD` when the checkout is detached. The checked-out branch is marked
+ *  `head` (mirroring `HEAD -> main` in `%D`, which does not repeat `main` as a
+ *  separate branch decoration) — emitting both would render the branch twice. */
+export function annotateCommitsWithRefs(commits: Commit[], refs: ShowRefData, headName: string): void {
+  const index = new Map<string, Commit>();
+  for (const c of commits) index.set(c.hash, c);
+
+  const onBranch = headName !== 'HEAD';
+  for (const h of refs.heads) {
+    const commit = index.get(h.hash);
+    if (!commit) continue;
+    commit.refs.push(onBranch && h.name === headName
+      ? { type: 'head', name: h.name }
+      : { type: 'branch', name: h.name });
   }
 
-  const knownRemotes = new Set(remoteNames ?? []);
+  for (const t of refs.tags) {
+    const commit = index.get(t.hash);
+    if (commit) commit.refs.push({ type: 'tag', name: t.name });
+  }
 
-  return refStr.split(',').map((r) => r.trim()).filter(Boolean).map((refName): Ref => {
-    // HEAD -> main
-    if (refName.startsWith('HEAD -> ')) {
-      return { type: 'head', name: refName.replace('HEAD -> ', '') };
-    }
-    // HEAD (detached)
-    if (refName === 'HEAD') {
-      return { type: 'head', name: 'HEAD' };
-    }
-    // stash ref
-    if (refName === 'refs/stash' || refName === 'stash') {
-      return { type: 'stash', name: 'stash' };
-    }
-    // tag: v1.0
-    if (refName.startsWith('tag: ')) {
-      return { type: 'tag', name: refName.replace('tag: ', '') };
-    }
-    // Remote branch: only if prefix matches a known remote name
-    if (refName.includes('/')) {
-      const slashIndex = refName.indexOf('/');
-      const prefix = refName.substring(0, slashIndex);
+  for (const r of refs.remotes) {
+    const commit = index.get(r.hash);
+    if (!commit) continue;
+    const slash = r.name.indexOf('/');
+    const remote = slash > 0 ? r.name.substring(0, slash) : r.name;
+    const name = slash > 0 ? r.name.substring(slash + 1) : r.name;
+    commit.refs.push({ type: 'remote-branch', name, remote });
+  }
 
-      if (knownRemotes.has(prefix)) {
-        return {
-          type: 'remote-branch',
-          name: refName.substring(slashIndex + 1),
-          remote: prefix,
-        };
-      }
-      // Not a known remote → treat as local branch (e.g. feat/login)
-      return { type: 'branch', name: refName };
-    }
-    // local branch
-    return { type: 'branch', name: refName };
-  });
+  // Detached HEAD: git decorates the checked-out commit with plain `HEAD`.
+  if (!onBranch && refs.head) {
+    const commit = index.get(refs.head);
+    if (commit) commit.refs.push({ type: 'head', name: 'HEAD' });
+  }
 }
 
 export function parseBranches(raw: string): BranchInfo[] {

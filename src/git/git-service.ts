@@ -14,7 +14,14 @@ import { resolveGitDirs } from '../services/file-watcher-helpers';
  *  preventing a pathological --no-pager binary blob from eating the whole
  *  extension host. Callers can override per-invocation via `maxBufferBytes`. */
 const DEFAULT_MAX_BUFFER_BYTES = 256 * 1024 * 1024;
-import { parseLog, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, mapSignatureStatus } from './git-parser';
+
+/** Shared `git log` format: hash, abbrev, author, committer, subject, parents,
+ *  body. Deliberately omits `%D`: refs are attached separately by matching
+ *  hashes from `git show-ref` (see `decorateRefs`), so git's synthetic
+ *  `grafted` decoration for shallow-clone boundary commits can never be
+ *  misread as a branch named "grafted". */
+const LOG_FORMAT = '%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%b';
+import { parseLog, parseShowRef, annotateCommitsWithRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, mapSignatureStatus } from './git-parser';
 import { buildReversePatch } from './patch-builder';
 import type { Commit, BranchInfo, TagInfo, RemoteInfo, StashEntry, LogOptions, DiffData, WorktreeInfo, CommitSignature, UserDetails, LfsLocksState } from './types';
 
@@ -488,7 +495,7 @@ export class GitService {
     // %G? is appended after %b only when signature verification is requested,
     // since it forces GPG verification of every commit in the log (slow on
     // large repos). %b never contains a NUL so the trailing column is unambiguous.
-    const format = '%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%D%x00%b'
+    const format = LOG_FORMAT
       + (options?.includeSignature ? '%x00%G?' : '');
     const args = [
       'log',
@@ -510,8 +517,9 @@ export class GitService {
           args.push(`--glob=refs/remotes/${source}`);
         }
       }
-      // Omit --glob=refs/tags when filtering: tags on reachable commits still appear via %D,
-      // but tag-only commits outside the selected scope are correctly excluded.
+      // Omit --glob=refs/tags when filtering: tags on reachable commits are
+      // still attached by decorateRefs(), but tag-only commits outside the
+      // selected scope are correctly excluded.
     }
 
     args.push(
@@ -575,11 +583,8 @@ export class GitService {
       args.push('--reflog');
     }
 
-    const [raw, remoteNames] = await Promise.all([
-      this.exec(args),
-      this.getRemoteNames(),
-    ]);
-    const commits = parseLog(raw, remoteNames);
+    const raw = await this.exec(args);
+    const commits = parseLog(raw);
 
     // Insert stash commits into the graph as separate rows
     if (stashes.length > 0) {
@@ -588,10 +593,10 @@ export class GitService {
         try {
           const stashRaw = await this.exec([
             'log', '--no-walk',
-            '--format=%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%D%x00%b',
+            `--format=${LOG_FORMAT}`,
             ...stashHashes,
           ]);
-          const stashCommits = parseLog(stashRaw, remoteNames);
+          const stashCommits = parseLog(stashRaw);
           const stashMap = new Map(stashes.map(s => [s.hash, s]));
           const commitHashIndex = new Map<string, number>();
           for (let i = 0; i < commits.length; i++) commitHashIndex.set(commits[i].hash, i);
@@ -671,6 +676,25 @@ export class GitService {
       }
     }
 
+    await this.decorateRefs(commits);
+    return commits;
+  }
+
+  /**
+   * Attach refs (local/remote branches, tags, HEAD) to already-parsed commits
+   * by matching hashes from `git show-ref -d --head`. This replaces the old
+   * `%D` decoration parsing: show-ref only ever lists real refs, so git's
+   * synthetic `grafted` decoration on a shallow-clone boundary commit can
+   * never be misread as a branch named "grafted" (while a genuinely-named
+   * `grafted` branch is still resolved through its real ref and hash).
+   */
+  private async decorateRefs(commits: Commit[]): Promise<Commit[]> {
+    if (commits.length === 0) return commits;
+    const [refRaw, headNameRaw] = await Promise.all([
+      this.exec(['show-ref', '-d', '--head'], { silent: true }).catch(() => ''),
+      this.exec(['rev-parse', '--abbrev-ref', 'HEAD'], { silent: true }).catch(() => ''),
+    ]);
+    annotateCommitsWithRefs(commits, parseShowRef(refRaw), headNameRaw.trim() || 'HEAD');
     return commits;
   }
 
@@ -1787,13 +1811,15 @@ export class GitService {
     this.assertSafeRef(base, 'log');
     const args = [
       'log',
-      '--format=%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%D%x00%b',
+      `--format=${LOG_FORMAT}`,
       '--topo-order',
       '--reverse',
       `${base}..HEAD`,
     ];
-    const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
-    return parseLog(raw, remoteNames);
+    const raw = await this.exec(args);
+    const commits = parseLog(raw);
+    await this.decorateRefs(commits);
+    return commits;
   }
 
   // --- Reset & Discard ---
@@ -2082,7 +2108,7 @@ export class GitService {
 
     const args = [
       'log',
-      '--format=%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%D%x00%b',
+      `--format=${LOG_FORMAT}`,
       '--all',
       '--topo-order',
       `--max-count=${options?.limit ?? 200}`,
@@ -2101,8 +2127,9 @@ export class GitService {
       args.push(`--before=${options.before}`);
     }
 
-    const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
-    const commits = parseLog(raw, remoteNames);
+    const raw = await this.exec(args);
+    const commits = parseLog(raw);
+    await this.decorateRefs(commits);
     return commits;
   }
 
@@ -2110,14 +2137,15 @@ export class GitService {
     this.assertSafePath(filePath, 'log');
     const args = [
       'log',
-      '--format=%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%D%x00%b',
+      `--format=${LOG_FORMAT}`,
       '--all',
       `--max-count=${limit}`,
       '--',
       filePath,
     ];
-    const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
-    const commits = parseLog(raw, remoteNames);
+    const raw = await this.exec(args);
+    const commits = parseLog(raw);
+    await this.decorateRefs(commits);
     return commits;
   }
 
@@ -2126,12 +2154,13 @@ export class GitService {
       this.assertSafeRef(hash, 'log');
       const args = [
         'log',
-        '--format=%x01%x02%x03%H%x00%h%x00%an%x00%ae%x00%aI%x00%cn%x00%ce%x00%cI%x00%s%x00%P%x00%D%x00%b',
+        `--format=${LOG_FORMAT}`,
         '-1',
         hash,
       ];
-      const [raw, remoteNames] = await Promise.all([this.exec(args), this.getRemoteNames()]);
-      const commits = parseLog(raw, remoteNames);
+      const raw = await this.exec(args);
+      const commits = parseLog(raw);
+      await this.decorateRefs(commits);
       return commits[0] ?? null;
     } catch (err) {
       logger.warn('Git Graph+: failed to get commit by hash:', err instanceof Error ? err.message : err);

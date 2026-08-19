@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseLog, parseRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, splitUpstreamRef, mapSignatureStatus } from '../git-parser';
+import { parseLog, parseShowRef, annotateCommitsWithRefs, parseBranches, parseTags, parseRemotes, parseStashList, parseDiff, parseWorktreeList, parseLfsFiles, parseLfsLocks, splitUpstreamRef, mapSignatureStatus } from '../git-parser';
+import type { Commit } from '../types';
 
 
 describe('parseLog', () => {
@@ -42,26 +43,16 @@ describe('parseLog', () => {
     expect(result[0].parents).toEqual(['parent1', 'parent2']);
   });
 
-  it('should parse refs with known remotes', () => {
-    const raw = '\x01\x02\x03abc123\x00abc\x00Alice\x00a@x.com\x002024-01-01\x00Alice\x00a@x.com\x002024-01-01\x00Commit\x00\x00HEAD -> main, origin/main, tag: v1.0';
-    const result = parseLog(raw, ['origin']);
-
-    expect(result[0].refs).toHaveLength(3);
-    expect(result[0].refs[0]).toEqual({ type: 'head', name: 'main' });
-    expect(result[0].refs[1]).toEqual({ type: 'remote-branch', name: 'main', remote: 'origin' });
-    expect(result[0].refs[2]).toEqual({ type: 'tag', name: 'v1.0' });
-  });
-
   it('should leave signatureStatus undefined when the signature column is absent', () => {
-    const raw = '\x01\x02\x03abc123\x00abc\x00Alice\x00a@x.com\x002024-01-01\x00Alice\x00a@x.com\x002024-01-01\x00Commit\x00\x00\x00body text';
+    const raw = '\x01\x02\x03abc123\x00abc\x00Alice\x00a@x.com\x002024-01-01\x00Alice\x00a@x.com\x002024-01-01\x00Commit\x00\x00body text';
     const result = parseLog(raw);
     expect(result[0].signatureStatus).toBeUndefined();
   });
 
   it('should parse signatureStatus from the appended %G? column', () => {
-    // ...subject\x00parents\x00refs\x00body\x00<code>
+    // ...subject\x00parents\x00body\x00<code>
     const make = (code: string) =>
-      `\x01\x02\x03abc123\x00abc\x00Alice\x00a@x.com\x002024-01-01\x00Alice\x00a@x.com\x002024-01-01\x00Commit\x00\x00\x00\x00${code}`;
+      `\x01\x02\x03abc123\x00abc\x00Alice\x00a@x.com\x002024-01-01\x00Alice\x00a@x.com\x002024-01-01\x00Commit\x00\x00\x00${code}`;
     expect(parseLog(make('G'))[0].signatureStatus).toBe('good');
     expect(parseLog(make('N'))[0].signatureStatus).toBe('none');
     expect(parseLog(make('U'))[0].signatureStatus).toBe('unverified');
@@ -69,7 +60,7 @@ describe('parseLog', () => {
   });
 
   it('should still parse signatureStatus when the body is non-empty', () => {
-    const raw = '\x01\x02\x03abc123\x00abc\x00Alice\x00a@x.com\x002024-01-01\x00Alice\x00a@x.com\x002024-01-01\x00Commit\x00\x00\x00multi\nline body\x00G';
+    const raw = '\x01\x02\x03abc123\x00abc\x00Alice\x00a@x.com\x002024-01-01\x00Alice\x00a@x.com\x002024-01-01\x00Commit\x00\x00multi\nline body\x00G';
     const result = parseLog(raw);
     expect(result[0].body).toBe('multi\nline body');
     expect(result[0].signatureStatus).toBe('good');
@@ -99,48 +90,165 @@ describe('mapSignatureStatus', () => {
   });
 });
 
-describe('parseRefs', () => {
-  it('should return empty array for empty input', () => {
-    expect(parseRefs('')).toEqual([]);
+describe('parseShowRef', () => {
+  it('should return empty data for empty input', () => {
+    expect(parseShowRef('')).toEqual({ head: null, heads: [], tags: [], remotes: [] });
+    expect(parseShowRef('   ')).toEqual({ head: null, heads: [], tags: [], remotes: [] });
   });
 
-  it('should parse HEAD pointer', () => {
-    const result = parseRefs('HEAD -> main');
-    expect(result).toEqual([{ type: 'head', name: 'main' }]);
+  it('should parse HEAD, heads, tags and remotes', () => {
+    const raw = [
+      '1111111 HEAD',
+      '1111111 refs/heads/main',
+      '2222222 refs/heads/feature/login',
+      '3333333 refs/tags/v1.0',
+      '4444444 refs/tags/v2.0',
+      '5555555 refs/tags/v2.0^{}',
+      '1111111 refs/remotes/origin/main',
+      '1111111 refs/remotes/origin/HEAD',
+    ].join('\n');
+    expect(parseShowRef(raw)).toEqual({
+      head: '1111111',
+      heads: [
+        { hash: '1111111', name: 'main' },
+        { hash: '2222222', name: 'feature/login' },
+      ],
+      tags: [
+        { hash: '3333333', name: 'v1.0' },
+        { hash: '5555555', name: 'v2.0' },
+      ],
+      remotes: [
+        { hash: '1111111', name: 'origin/main' },
+        { hash: '1111111', name: 'origin/HEAD' },
+      ],
+    });
   });
 
-  it('should parse detached HEAD', () => {
-    const result = parseRefs('HEAD');
-    expect(result).toEqual([{ type: 'head', name: 'HEAD' }]);
+  it('uses the peeled hash for annotated tags and ignores non-ref lines', () => {
+    // Annotated tag v2.0: the tag-object hash (4444444) is replaced by the
+    // peeled commit hash (5555555). Unknown refs (refs/notes, refs/stash) are
+    // skipped.
+    const raw = [
+      '4444444 refs/tags/v2.0',
+      '5555555 refs/tags/v2.0^{}',
+      '7777777 refs/notes/commits',
+      '8888888 refs/stash',
+      'malformed line without hash',
+    ].join('\n');
+    expect(parseShowRef(raw).tags).toEqual([{ hash: '5555555', name: 'v2.0' }]);
+  });
+});
+
+describe('annotateCommitsWithRefs', () => {
+  const makeCommit = (hash: string, refs: Commit['refs'] = []): Commit => ({
+    hash,
+    abbreviatedHash: hash.slice(0, 7),
+    author: { name: '', email: '', date: '' },
+    committer: { name: '', email: '', date: '' },
+    subject: '',
+    body: '',
+    parents: [],
+    refs,
   });
 
-  it('should parse tag', () => {
-    const result = parseRefs('tag: v1.0.0');
-    expect(result).toEqual([{ type: 'tag', name: 'v1.0.0' }]);
+  it('marks the checked-out branch as head, not branch (mirrors "HEAD -> main")', () => {
+    const commits = [makeCommit('1111111'), makeCommit('2222222')];
+    annotateCommitsWithRefs(commits, {
+      head: '1111111',
+      heads: [
+        { hash: '1111111', name: 'main' },
+        { hash: '2222222', name: 'feature' },
+      ],
+      tags: [],
+      remotes: [],
+    }, 'main');
+
+    expect(commits[0].refs).toEqual([{ type: 'head', name: 'main' }]);
+    expect(commits[1].refs).toEqual([{ type: 'branch', name: 'feature' }]);
   });
 
-  it('should parse remote branch with known remotes', () => {
-    const result = parseRefs('origin/main', ['origin']);
-    expect(result).toEqual([{ type: 'remote-branch', name: 'main', remote: 'origin' }]);
+  it('annotates detached HEAD with a head ref named HEAD', () => {
+    const commits = [makeCommit('1111111'), makeCommit('2222222')];
+    annotateCommitsWithRefs(commits, {
+      head: '2222222',
+      heads: [{ hash: '1111111', name: 'main' }],
+      tags: [],
+      remotes: [],
+    }, 'HEAD');
+
+    expect(commits[0].refs).toEqual([{ type: 'branch', name: 'main' }]);
+    expect(commits[1].refs).toEqual([{ type: 'head', name: 'HEAD' }]);
   });
 
-  it('should parse slash branch as local without known remotes', () => {
-    const result = parseRefs('feature/login');
-    expect(result).toEqual([{ type: 'branch', name: 'feature/login' }]);
+  it('attaches tags and remote branches, splitting the remote from the name', () => {
+    const commits = [makeCommit('1111111')];
+    annotateCommitsWithRefs(commits, {
+      head: null,
+      heads: [],
+      tags: [{ hash: '1111111', name: 'v1.0' }],
+      remotes: [
+        { hash: '1111111', name: 'origin/main' },
+        { hash: '1111111', name: 'origin/feature/login' },
+        { hash: '1111111', name: 'origin/HEAD' },
+      ],
+    }, 'main');
+
+    expect(commits[0].refs).toEqual([
+      { type: 'tag', name: 'v1.0' },
+      { type: 'remote-branch', name: 'main', remote: 'origin' },
+      { type: 'remote-branch', name: 'feature/login', remote: 'origin' },
+      { type: 'remote-branch', name: 'HEAD', remote: 'origin' },
+    ]);
   });
 
-  it('should parse local branch', () => {
-    const result = parseRefs('feature-x');
-    expect(result).toEqual([{ type: 'branch', name: 'feature-x' }]);
+  it('ignores refs whose commit is not in the list', () => {
+    const commits = [makeCommit('1111111')];
+    annotateCommitsWithRefs(commits, {
+      head: '9999999',
+      heads: [
+        { hash: '1111111', name: 'main' },
+        { hash: '9999999', name: 'elsewhere' },
+      ],
+      tags: [{ hash: '9999999', name: 'v1.0' }],
+      remotes: [{ hash: '9999999', name: 'origin/elsewhere' }],
+    }, 'main');
+
+    expect(commits[0].refs).toEqual([{ type: 'head', name: 'main' }]);
   });
 
-  it('should parse mixed refs with known remotes', () => {
-    const result = parseRefs('HEAD -> main, origin/main, tag: v2.0, feature/test', ['origin']);
-    expect(result).toHaveLength(4);
-    expect(result[0].type).toBe('head');
-    expect(result[1].type).toBe('remote-branch');
-    expect(result[2].type).toBe('tag');
-    expect(result[3].type).toBe('branch'); // feature/test is local (feature is not a remote)
+  it('appends to existing refs instead of replacing them (stash badge)', () => {
+    const commits = [makeCommit('1111111', [{ type: 'stash', name: 'stash@{0}' }])];
+    annotateCommitsWithRefs(commits, {
+      head: '1111111',
+      heads: [{ hash: '1111111', name: 'main' }],
+      tags: [],
+      remotes: [],
+    }, 'main');
+
+    expect(commits[0].refs).toEqual([
+      { type: 'stash', name: 'stash@{0}' },
+      { type: 'head', name: 'main' },
+    ]);
+  });
+
+  it('does not invent a grafted ref: only real refs from show-ref are attached', () => {
+    // Regression for shallow clones: git's `%D` decoration would contain a
+    // synthetic `grafted` token on the boundary commit, which was misparsed as
+    // a branch. show-ref data has no such token — the boundary commit simply
+    // gets no refs unless a real ref points at it.
+    const commits = [makeCommit('1111111')];
+    annotateCommitsWithRefs(commits, { head: '1111111', heads: [], tags: [], remotes: [] }, 'HEAD');
+    expect(commits[0].refs).toEqual([{ type: 'head', name: 'HEAD' }]);
+
+    // ...but a genuinely-named `grafted` branch is still resolved via its hash.
+    const withGraftedBranch = [makeCommit('2222222')];
+    annotateCommitsWithRefs(withGraftedBranch, {
+      head: null,
+      heads: [{ hash: '2222222', name: 'grafted' }],
+      tags: [],
+      remotes: [],
+    }, 'main');
+    expect(withGraftedBranch[0].refs).toEqual([{ type: 'branch', name: 'grafted' }]);
   });
 });
 

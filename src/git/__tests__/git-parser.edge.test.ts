@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   parseLog,
-  parseRefs,
+  parseShowRef,
   parseBranches,
   parseTags,
   parseRemotes,
@@ -11,24 +11,6 @@ import {
   parseLfsFiles,
   parseLfsLocks,
 } from '../git-parser';
-
-describe('parseRefs — edge cases', () => {
-  it('handles stash refs (refs/stash and stash)', () => {
-    expect(parseRefs('refs/stash')).toEqual([{ type: 'stash', name: 'stash' }]);
-    expect(parseRefs('stash')).toEqual([{ type: 'stash', name: 'stash' }]);
-  });
-
-  it('skips blank entries between commas', () => {
-    expect(parseRefs('main, ,origin/main', ['origin'])).toEqual([
-      { type: 'branch', name: 'main' },
-      { type: 'remote-branch', name: 'main', remote: 'origin' },
-    ]);
-  });
-
-  it('whitespace-only refStr returns empty', () => {
-    expect(parseRefs('   ')).toEqual([]);
-  });
-});
 
 describe('parseLog — edge cases', () => {
   it('record without refs field produces empty refs array', () => {
@@ -44,7 +26,7 @@ describe('parseLog — edge cases', () => {
   });
 
   it('parses commit body when present', () => {
-    const raw = '\x01\x02\x03h\x00h\x00A\x00a@x.com\x002024-01-01\x00A\x00a@x.com\x002024-01-01\x00subject\x00\x00\x00body line\n\nmore';
+    const raw = '\x01\x02\x03h\x00h\x00A\x00a@x.com\x002024-01-01\x00A\x00a@x.com\x002024-01-01\x00subject\x00\x00body line\n\nmore';
     const result = parseLog(raw);
     expect(result[0].body).toBe('body line\n\nmore');
   });
@@ -56,7 +38,7 @@ describe('parseLog — edge cases', () => {
     const subjectWithSep = 'subject with \x01 inside';
     const bodyWithSep = 'body has \x01 byte and \x01 again';
     const raw =
-      `\x01\x02\x03h1\x00h1\x00A\x00a@x.com\x002024-01-01\x00A\x00a@x.com\x002024-01-01\x00${subjectWithSep}\x00\x00\x00${bodyWithSep}` +
+      `\x01\x02\x03h1\x00h1\x00A\x00a@x.com\x002024-01-01\x00A\x00a@x.com\x002024-01-01\x00${subjectWithSep}\x00\x00${bodyWithSep}` +
       `\x01\x02\x03h2\x00h2\x00B\x00b@x.com\x002024-01-02\x00B\x00b@x.com\x002024-01-02\x00second\x00h1\x00\x00`;
     const result = parseLog(raw);
     expect(result).toHaveLength(2);
