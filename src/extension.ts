@@ -115,6 +115,12 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('git.path')) applyGitPath();
       if (e.affectsConfiguration('gitGraphPlus.timeout')) activeGitService.setDefaultTimeout(readTimeoutMs());
+      // The sidebar FileWatcher reads `enabled` at startup/repo-switch only;
+      // without this, toggling `autoRefresh` at runtime left it stale and the
+      // sidebar kept auto-refreshing even when the setting was turned off.
+      if (e.affectsConfiguration('gitGraphPlus.autoRefresh')) {
+        fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
+      }
     }),
   );
 
