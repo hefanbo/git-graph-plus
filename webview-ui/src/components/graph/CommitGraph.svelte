@@ -1093,17 +1093,20 @@
 
       // ── Branch / tag operations (merge, rebase, interactive rebase) ──
       const branchOps: any[] = [];
-      const hasBranchOrTag = commit.refs.some(r => r.type === 'head' || r.type === 'branch' || r.type === 'remote-branch' || r.type === 'tag');
-      if (hasBranchOrTag) {
-        const localRef  = commit.refs.find(r => r.type === 'head' || r.type === 'branch');
-        const remoteRef = commit.refs.find(r => r.type === 'remote-branch');
-        const tagRef    = commit.refs.find(r => r.type === 'tag');
-        const mergeRef  = localRef?.name ?? (remoteRef ? `${remoteRef.remote}/${remoteRef.name}` : undefined) ?? tagRef?.name ?? commit.hash;
-        if (mergeRef !== currentBranch) {
-          branchOps.push({ label: t('graph.mergeInto', { branch: currentBranch }), action: () => { modalStore.openMerge(mergeRef, branchStore.currentBranch?.name ?? 'current branch'); } });
-        }
-      }
+      const localRef  = commit.refs.find(r => r.type === 'head' || r.type === 'branch');
+      const remoteRef = commit.refs.find(r => r.type === 'remote-branch');
+      const tagRef    = commit.refs.find(r => r.type === 'tag');
+      // Prefer a named ref when the commit carries one (nicer merge message,
+      // deleteSource flow); fall back to the raw hash so ref-less commits can be
+      // merged too.
+      const mergeRef  = localRef?.name ?? (remoteRef ? `${remoteRef.remote}/${remoteRef.name}` : undefined) ?? tagRef?.name ?? commit.hash;
       const isOnCurrentBranch = currentBranchCommits.has(commit.hash);
+      // Merging a commit already reachable from the current branch tip — an
+      // ancestor, or the tip itself — is a no-op ("Already up to date"), so hide
+      // merge then, even when a different ref label points at that commit.
+      if (!isOnCurrentBranch) {
+        branchOps.push({ label: t('graph.mergeInto', { branch: currentBranch }), action: () => { modalStore.openMerge(mergeRef, branchStore.currentBranch?.name ?? 'current branch'); } });
+      }
       if (!isOnCurrentBranch) {
         branchOps.push({ label: t('graph.rebaseTo', { branch: currentBranch }), action: () => { rebaseTarget = commit.hash; showRebaseModal = true; } });
       }

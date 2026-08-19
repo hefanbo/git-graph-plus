@@ -246,6 +246,55 @@ describe('CommitGraph smoke', () => {
   });
 });
 
+describe('CommitGraph — merge from commit', () => {
+  it('offers "Merge into" for a ref-less commit not on the current branch, using its hash', async () => {
+    // h1 is the current branch tip; h2 is a plain (ref-less) descendant commit,
+    // so not reachable from main and mergeable by hash.
+    const h0 = makeCommit('h0', 'old plain');
+    const h1 = makeCommit('h1', 'tip', ['h0']);
+    h1.refs = [{ type: 'head', name: 'main' }];
+    const h2 = makeCommit('h2', 'plain side commit', ['h1']);
+    commitStore.setData(makeGraphData([h2, h1, h0]));
+    branchStore.branches = [
+      { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+    const row = container.querySelectorAll<HTMLElement>('.commit-row')[0]; // h2
+    await fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+    await tick();
+    const item = Array.from(container.querySelectorAll<HTMLElement>('button.menu-item'))
+      .find(el => /^Merge into 'main'$/.test((el.textContent ?? '').trim()));
+    expect(item).toBeTruthy();
+    await fireEvent.click(item!);
+    await tick();
+    expect(modalStore.merge.show).toBe(true);
+    expect(modalStore.merge.source).toBe('h2');
+    expect(modalStore.merge.target).toBe('main');
+    modalStore.closeMerge();
+  });
+
+  it('hides "Merge into" for a ref-less commit that is an ancestor of the current branch tip', async () => {
+    // h0 is a plain commit reachable from main (an ancestor of the tip), so
+    // merging it would be an "Already up to date" no-op and the item must hide.
+    const h0 = makeCommit('h0', 'ancestor plain');
+    const h1 = makeCommit('h1', 'tip', ['h0']);
+    h1.refs = [{ type: 'head', name: 'main' }];
+    commitStore.setData(makeGraphData([h1, h0]));
+    branchStore.branches = [
+      { name: 'main', current: true, ahead: 0, behind: 0, hash: 'h1' },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const row = container.querySelectorAll<HTMLElement>('.commit-row')[1]; // h0
+    await fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+    await tick();
+    const items = Array.from(container.querySelectorAll<HTMLElement>('button.menu-item'));
+    expect(items.some(el => /^Merge into 'main'$/.test((el.textContent ?? '').trim()))).toBe(false);
+  });
+});
+
 describe('CommitGraph signature icon', () => {
   it('renders a signature icon for good/unverified commits', async () => {
     commitStore.setData(makeGraphData([
