@@ -351,6 +351,10 @@
   // SourceGit uses unitWidth=12 for X coordinates, we scale them up for display
   const X_SCALE = 1.05; // multiply SourceGit X coords by this for pixel positions
   const BUFFER_ROWS = 20; // Larger buffer to keep lines visible during scroll
+  // Auto-load the next commit batch when the viewport bottom is within this many
+  // pixels of the content end — roughly the height of the load-more row, so it
+  // fires as that row comes into view.
+  const LOAD_MORE_SCROLL_THRESHOLD = 60;
 
   let container: HTMLDivElement | undefined = $state();
   let scrollTop = $state(0);
@@ -552,7 +556,30 @@
       // the user can still scroll horizontally on their own between vertical
       // scrolls.
       if (horizontalScroll && verticalChanged) autoPanHorizontal();
+      // When scrolled to the very bottom and more commits exist, load them
+      // automatically (instead of requiring a click on the "Load more" button).
+      maybeAutoLoadMore();
     });
+  }
+
+  // When the user has scrolled to within a hair of the bottom, fetch the next
+  // batch of commits. The appended rows grow scrollHeight, pushing the bottom
+  // out of reach again, so one scroll-to-bottom loads exactly one batch — it
+  // never chains down through the whole history.
+  function maybeAutoLoadMore() {
+    if (!container || !uiStore.autoLoadMore) return;
+    if (!commitStore.hasMore || commitStore.loadingMore || isSearchActive) return;
+    // scrollTop > 0 mirrors the reference implementation: when the content fits
+    // in the viewport (scrollHeight === clientHeight) this condition would
+    // otherwise hold at scrollTop 0 and auto-load on any stray scroll event.
+    const atBottom = container.scrollTop > 0 && container.scrollHeight - (container.scrollTop + container.clientHeight) <= LOAD_MORE_SCROLL_THRESHOLD;
+    if (atBottom) loadMoreCommits();
+  }
+
+  // Shared by the "Load more commits" button and the scroll-triggered auto-load.
+  function loadMoreCommits() {
+    commitStore.setLoadingMore(true);
+    vscode.postMessage({ type: 'getLog', payload: { limit: commitStore.currentLimit + uiStore.loadMoreCount } });
   }
 
   // In horizontal-scroll mode, keep the message start (the graph's right edge) of the
@@ -1713,10 +1740,7 @@
         <button
           class="load-more-btn"
           disabled={commitStore.loadingMore}
-          onclick={() => {
-            commitStore.setLoadingMore(true);
-            vscode.postMessage({ type: 'getLog', payload: { limit: commitStore.currentLimit + uiStore.loadMoreCount } });
-          }}
+          onclick={loadMoreCommits}
         >
           {#if commitStore.loadingMore}
             <span class="spinner"></span>

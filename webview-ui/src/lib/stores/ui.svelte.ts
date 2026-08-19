@@ -24,6 +24,10 @@ class UiStore {
   operating = $state<string | null>(null);
   badgeBarWidth = $state(4);
   loadMoreCount = $state(50);
+  // When scrolled to the bottom of the graph, auto-load more commits instead of
+  // requiring a click on the "Load more commits" button. Synced from the
+  // gitGraphPlus.autoLoadMore setting (defaults to true).
+  autoLoadMore = $state(true);
   interactiveRebaseMode = $state<InteractiveRebaseMode>('ui');
   // True while a file is selected in the commit-details panel. Owned (synced)
   // by CommitDetails; read by the global Esc handler so the first Esc deselects

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, cleanup, fireEvent } from '@testing-library/svelte';
+import { render, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import CommitGraph from '../CommitGraph.svelte';
 import { commitStore } from '../../../lib/stores/commits.svelte';
@@ -49,6 +49,7 @@ beforeEach(() => {
   branchStore.branches = [];
   branchStore.worktrees = [];
   uiStore.selectedCommitHash = null;
+  uiStore.autoLoadMore = true;
   modalStore.closeAll();
 });
 
@@ -416,5 +417,85 @@ describe('CommitGraph signature icon', () => {
     expect(item).toBeTruthy();
 
     uiStore.exitMultiSelect();
+  });
+});
+
+describe('CommitGraph — auto-load on scroll', () => {
+  function driveScrollToBottom(graph: HTMLElement) {
+    // happy-dom does no layout, so clientHeight/scrollHeight/scrollTop stay 0;
+    // set the scroll metrics directly to simulate a viewport scrolled to the
+    // bottom (1800 + 200 === 2000, i.e. within LOAD_MORE_SCROLL_THRESHOLD).
+    Object.defineProperty(graph, 'clientHeight', { value: 200, configurable: true });
+    Object.defineProperty(graph, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(graph, 'scrollTop', { value: 1800, configurable: true });
+  }
+
+  function getLogPosts() {
+    return globalThis.__postedMessages.filter(
+      (m) => (m.data as { type?: string }).type === 'getLog'
+    );
+  }
+
+  it('scrolling to the bottom auto-posts getLog with the increased limit', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    commitStore.hasMore = true;
+    commitStore.currentLimit = 50;
+    uiStore.loadMoreCount = 50;
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+
+    driveScrollToBottom(container.querySelector<HTMLElement>('.commit-graph')!);
+    await fireEvent.scroll(container.querySelector<HTMLElement>('.commit-graph')!);
+    // handleScroll defers the check to a requestAnimationFrame callback.
+    await waitFor(() => {
+      expect(getLogPosts().length).toBe(1);
+    });
+    expect((getLogPosts()[0].data as { payload: { limit: number } }).payload.limit).toBe(100);
+  });
+
+  it('does not auto-load when scrolled well above the bottom', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    commitStore.hasMore = true;
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+
+    const graph = container.querySelector<HTMLElement>('.commit-graph')!;
+    Object.defineProperty(graph, 'clientHeight', { value: 200, configurable: true });
+    Object.defineProperty(graph, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(graph, 'scrollTop', { value: 500, configurable: true }); // 1300px of content still below
+    await fireEvent.scroll(graph);
+    await new Promise(r => setTimeout(r, 25)); // let the rAF check run
+    expect(getLogPosts().length).toBe(0);
+  });
+
+  it('does not auto-load when the autoLoadMore setting is off', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    commitStore.hasMore = true;
+    uiStore.autoLoadMore = false;
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+
+    driveScrollToBottom(container.querySelector<HTMLElement>('.commit-graph')!);
+    await fireEvent.scroll(container.querySelector<HTMLElement>('.commit-graph')!);
+    await new Promise(r => setTimeout(r, 25));
+    expect(getLogPosts().length).toBe(0);
+  });
+
+  it('does not auto-load while a load is already in progress', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    commitStore.hasMore = true;
+    commitStore.setLoadingMore(true);
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+
+    driveScrollToBottom(container.querySelector<HTMLElement>('.commit-graph')!);
+    await fireEvent.scroll(container.querySelector<HTMLElement>('.commit-graph')!);
+    await new Promise(r => setTimeout(r, 25));
+    expect(getLogPosts().length).toBe(0);
+    commitStore.setLoadingMore(false);
   });
 });

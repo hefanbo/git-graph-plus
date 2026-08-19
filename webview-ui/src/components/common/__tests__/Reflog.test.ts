@@ -3,6 +3,7 @@ import { render, fireEvent, waitFor } from '@testing-library/svelte';
 import Reflog from '../Reflog.svelte';
 import { i18n } from '../../../lib/i18n/index.svelte';
 import { branchStore } from '../../../lib/stores/branches.svelte';
+import { uiStore } from '../../../lib/stores/ui.svelte';
 
 interface ReflogEntry {
   hash: string;
@@ -38,6 +39,7 @@ beforeEach(() => {
   branchStore.tags = [];
   branchStore.stashes = [];
   branchStore.worktrees = [];
+  uiStore.autoLoadMore = true;
   globalThis.__postedMessages = [];
 });
 
@@ -498,5 +500,80 @@ describe('Reflog — dropdown backdrops and clear', () => {
     await waitFor(() => {
       expect(container.querySelectorAll('.reflog-row').length).toBe(2);
     });
+  });
+});
+
+describe('Reflog — auto-load on scroll', () => {
+  function getReflogPosts() {
+    return globalThis.__postedMessages.filter(
+      (m) => (m.data as { type?: string }).type === 'getReflog'
+    );
+  }
+
+  function driveScrollToBottom(list: HTMLElement) {
+    // happy-dom does no layout; set the scroll metrics directly to simulate a
+    // viewport scrolled to the bottom (1800 + 200 === 2000, within threshold).
+    Object.defineProperty(list, 'clientHeight', { value: 200, configurable: true });
+    Object.defineProperty(list, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(list, 'scrollTop', { value: 1800, configurable: true });
+  }
+
+  it('scrolling to the bottom auto-requests the next batch', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()], /* hasMore */ true);
+    await waitFor(() => container.querySelector('.load-more-btn'));
+    globalThis.__postedMessages = [];
+
+    driveScrollToBottom(container.querySelector<HTMLElement>('.reflog-list')!);
+    await fireEvent.scroll(container.querySelector<HTMLElement>('.reflog-list')!);
+
+    const req = getReflogPosts().find(
+      (m) => (m.data as { payload?: { limit?: number } }).payload?.limit !== undefined
+    );
+    expect(req).toBeDefined();
+    expect((req!.data as { payload: { limit: number } }).payload.limit).toBe(400);
+  });
+
+  it('does not auto-load when scrolled well above the bottom', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()], /* hasMore */ true);
+    await waitFor(() => container.querySelector('.load-more-btn'));
+    globalThis.__postedMessages = [];
+
+    const list = container.querySelector<HTMLElement>('.reflog-list')!;
+    Object.defineProperty(list, 'clientHeight', { value: 200, configurable: true });
+    Object.defineProperty(list, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(list, 'scrollTop', { value: 500, configurable: true }); // 1300px of content still below
+    await fireEvent.scroll(list);
+    expect(getReflogPosts().length).toBe(0);
+  });
+
+  it('does not auto-load when the autoLoadMore setting is off', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()], /* hasMore */ true);
+    await waitFor(() => container.querySelector('.load-more-btn'));
+    globalThis.__postedMessages = [];
+    uiStore.autoLoadMore = false;
+
+    driveScrollToBottom(container.querySelector<HTMLElement>('.reflog-list')!);
+    await fireEvent.scroll(container.querySelector<HTMLElement>('.reflog-list')!);
+    expect(getReflogPosts().length).toBe(0);
+  });
+
+  it('does not auto-load while a load is already in progress', async () => {
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()], /* hasMore */ true);
+    await waitFor(() => container.querySelector('.load-more-btn'));
+    globalThis.__postedMessages = [];
+
+    const list = container.querySelector<HTMLElement>('.reflog-list')!;
+    driveScrollToBottom(list);
+    // Simulate an in-flight load-more by clicking the button first.
+    await fireEvent.click(container.querySelector<HTMLButtonElement>('.load-more-btn')!);
+    expect(getReflogPosts().length).toBe(1);
+    globalThis.__postedMessages = [];
+
+    await fireEvent.scroll(list);
+    expect(getReflogPosts().length).toBe(0);
   });
 });

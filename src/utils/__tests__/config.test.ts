@@ -13,7 +13,7 @@ vi.mock('vscode', () => ({
   },
 }));
 
-import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount } from '../config';
+import { readTimeoutMs, readInitialCommitCount, readLoadMoreCommitCount, readAutoLoadMore } from '../config';
 
 describe('readTimeoutMs', () => {
   // Back-compat alias so the existing timeout cases below read naturally.
@@ -99,5 +99,18 @@ describe('readLoadMoreCommitCount', () => {
     expect(readLoadMoreCommitCount()).toBe(50);
     h.values.loadMoreCommitCount = Infinity;
     expect(readLoadMoreCommitCount()).toBe(50);
+  });
+});
+
+describe('readAutoLoadMore', () => {
+  beforeEach(() => { h.values = {}; });
+
+  it('defaults to true when unset', () => {
+    expect(readAutoLoadMore()).toBe(true);
+  });
+
+  it('returns the boolean value as-is', () => {
+    h.values.autoLoadMore = false;
+    expect(readAutoLoadMore()).toBe(false);
   });
 });

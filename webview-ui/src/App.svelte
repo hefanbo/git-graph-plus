@@ -118,6 +118,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setLoadMoreCount':
           uiStore.loadMoreCount = msg.payload.count;
           break;
+        case 'setAutoLoadMore':
+          uiStore.autoLoadMore = msg.payload.enabled;
+          break;
         case 'setInteractiveRebaseMode':
           uiStore.interactiveRebaseMode = msg.payload.mode;
           break;
@@ -148,6 +151,10 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'error':
           uiStore.setError(msg.payload.message);
           commitStore.setLoading(false);
+          // A failed "load more" request would otherwise leave loadingMore stuck
+          // true, permanently disabling the Load more button (and any future
+          // auto-load-on-scroll trigger). Reset it so the user can retry.
+          commitStore.setLoadingMore(false);
           // Close only the modal that originated the failing operation. An
           // unrelated background failure (e.g. a getStats refresh) used to
           // close any in-progress modal — including one the user was

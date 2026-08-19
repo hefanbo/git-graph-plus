@@ -38,6 +38,15 @@ export function readLoadMoreCommitCount(): number {
 }
 
 /**
+ * Reads `gitGraphPlus.autoLoadMore` — whether the graph auto-loads more
+ * commits when scrolled to the bottom (instead of requiring a click on the
+ * "Load more commits" button). Defaults to true.
+ */
+export function readAutoLoadMore(): boolean {
+  return vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoLoadMore', true);
+}
+
+/**
  * Reads `gitGraphPlus.interactiveRebase.mode` — whether interactive rebase
  * opens the GUI editor (`ui`, default) or runs classic `git rebase -i` in the
  * integrated terminal (`classic`).

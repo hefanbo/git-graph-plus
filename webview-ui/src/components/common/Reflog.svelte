@@ -6,6 +6,7 @@
   import ResetModal from '../modals/ResetModal.svelte';
   import CheckoutCommitModal from '../modals/CheckoutCommitModal.svelte';
   import { branchStore } from '../../lib/stores/branches.svelte';
+  import { uiStore } from '../../lib/stores/ui.svelte';
   import { tooltip } from '../../lib/actions/tooltip';
   import LinkifiedText from './LinkifiedText.svelte';
 
@@ -36,6 +37,7 @@
   let hasMore       = $state(false);
   let loadingMore   = $state(false);
   let currentLimit  = $state(200);
+  let listEl: HTMLElement | undefined = $state();
 
   // ── 검색 ────────────────────────────────────────────────
   let query         = $state('');
@@ -156,6 +158,19 @@
     loadingMore = true;
     currentLimit += 200;
     vscode.postMessage({ type: 'getReflog', payload: { ref: selectedRef || 'HEAD', limit: currentLimit } });
+  }
+
+  // Auto-load the next batch when the user has scrolled to within a hair of the
+  // bottom, mirroring the graph's load-more-on-scroll. The appended entries grow
+  // scrollHeight, so one scroll-to-bottom loads exactly one batch.
+  function handleListScroll() {
+    if (!listEl || !uiStore.autoLoadMore) return;
+    if (!hasMore || loadingMore) return;
+    // scrollTop > 0 avoids firing when the content fits in the viewport (where
+    // scrollHeight === clientHeight and this would otherwise hold at the top).
+    if (listEl.scrollTop > 0 && listEl.scrollHeight - (listEl.scrollTop + listEl.clientHeight) <= 60) {
+      loadMore();
+    }
   }
 
   // Only react to `active` toggling. Without untrack(), reading selectedRef
@@ -344,7 +359,7 @@
       {entries.length === 0 ? t('reflog.empty') : t('reflog.noMatches')}
     </div>
   {:else}
-    <div class="reflog-list" role="list">
+    <div class="reflog-list" role="list" bind:this={listEl} onscroll={handleListScroll}>
       <div class="reflog-header">
         <div class="col-idx">#</div>
         <div class="col-action">{t('reflog.action')}</div>
