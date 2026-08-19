@@ -206,7 +206,7 @@ VS Code를 위한 모던 Git GUI. 커밋 히스토리를 시각화하고, 브랜
 | Push            | `push.force`, `push.setUpstream`, `push.allTags`                                             |
 | Pull            | `pull.rebase`, `pull.stash`                                                                  |
 | Fetch           | `fetch.allRemotes`                                                                           |
-| Merge           | `merge.mode`, `merge.pushAfter`, `merge.deleteSource`                                        |
+| Merge           | `merge.mode`, `merge.pushAfter`, `merge.deleteSource`, `merge.noCommit`                      |
 | Rebase          | `rebase.autostash`, `rebase.pushAfter`                                                       |
 | Amend           | `amend.keepMessage`, `amend.resetDate`, `amend.resetAuthor`, `amend.only`, `amend.pushAfter` |
 | Checkout        | `checkout.dirty`, `checkoutRemote.dirty`                                                     |

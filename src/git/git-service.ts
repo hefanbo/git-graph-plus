@@ -1151,7 +1151,7 @@ export class GitService {
     return { hasConflict: false, files: [], truncated };
   }
 
-  async merge(branch: string, options?: { noFf?: boolean; ffOnly?: boolean; squash?: boolean; strategyOurs?: boolean }): Promise<void> {
+  async merge(branch: string, options?: { noFf?: boolean; ffOnly?: boolean; squash?: boolean; strategyOurs?: boolean; noCommit?: boolean }): Promise<void> {
     this.assertSafeRef(branch, 'merge');
     if (options?.squash && options?.strategyOurs) {
       throw new GitError('Merge strategy "ours" cannot be combined with --squash', null, []);
@@ -1169,8 +1169,18 @@ export class GitService {
     if (options?.squash) {
       args.push('--squash');
     }
+    if (options?.noCommit) {
+      args.push('--no-commit');
+      // `git merge --no-commit` alone still fast-forwards (and commits) when the
+      // target is ahead; force a real merge so "merge but don't commit" holds.
+      if (!options?.noFf && !options?.ffOnly && !options?.squash) {
+        args.push('--no-ff');
+      }
+    }
     await this.exec(args);
-    if (options?.squash) {
+    // `--squash` doesn't autocommit; finish the merge here unless --no-commit
+    // asked to leave the changes staged for manual review/commit.
+    if (options?.squash && !options?.noCommit) {
       await this.exec(['commit', '--no-edit']);
     }
   }

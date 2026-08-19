@@ -14,7 +14,7 @@
     target: string;
     canDeleteSource?: boolean;
     onClose: () => void;
-    onMerge: (options: { noFf: boolean; ffOnly: boolean; squash: boolean; strategyOurs: boolean; pushAfter: boolean; deleteSource: boolean }) => void;
+    onMerge: (options: { noFf: boolean; ffOnly: boolean; squash: boolean; strategyOurs: boolean; noCommit: boolean; pushAfter: boolean; deleteSource: boolean }) => void;
   }
 
   let { source, target, canDeleteSource = false, onClose, onMerge }: Props = $props();
@@ -22,6 +22,7 @@
   let pushAfter = $state(defaultsStore.current.merge.pushAfter);
   let deleteSource = $state(defaultsStore.current.merge.deleteSource);
   let strategyOurs = $state(defaultsStore.current.merge.strategyOurs);
+  let noCommit = $state(defaultsStore.current.merge.noCommit);
   let mergeBtn: HTMLButtonElement | undefined = $state();
 
   let conflictPrediction = $state<{ hasConflict: boolean; files: string[] } | null>(null);
@@ -75,10 +76,19 @@
   {/if}
   <div class="modal-form-group">
     <label class="modal-checkbox">
-      <input type="checkbox" bind:checked={pushAfter} />
-      <span>{t('merge.pushAfter')}</span>
+      <input type="checkbox" bind:checked={noCommit} />
+      <span>{t('merge.noCommit')}</span>
+      <span class="modal-flag-badge">--no-commit</span>
     </label>
   </div>
+  {#if !noCommit}
+    <div class="modal-form-group">
+      <label class="modal-checkbox">
+        <input type="checkbox" bind:checked={pushAfter} />
+        <span>{t('merge.pushAfter')}</span>
+      </label>
+    </div>
+  {/if}
   {#if canDeleteSource}
     <div class="modal-form-group">
       <label class="modal-checkbox">
@@ -114,7 +124,8 @@
       ffOnly: false,
       squash: strategyOurs ? false : mergeMode === 'squash',
       strategyOurs,
-      pushAfter,
+      noCommit,
+      pushAfter: !noCommit && pushAfter,
       deleteSource: canDeleteSource && deleteSource,
     })}>{t('merge.merge')}</button>
   </div>

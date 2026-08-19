@@ -638,6 +638,24 @@ describe('GitService', () => {
       expect(calls[1]).toEqual(['commit', '--no-edit']);
     });
 
+    it('merge --no-commit implies --no-ff (git would otherwise fast-forward and commit)', async () => {
+      await service.merge('feature', { noCommit: true });
+      expect(calls[0]).toEqual(['merge', 'feature', '--no-commit', '--no-ff']);
+      expect(calls.length).toBe(1);
+    });
+
+    it('merge --no-ff --no-commit keeps the explicit --no-ff without duplicating it', async () => {
+      await service.merge('feature', { noFf: true, noCommit: true });
+      expect(calls[0]).toEqual(['merge', 'feature', '--no-ff', '--no-commit']);
+    });
+
+    it('merge --squash --no-commit stages without the separate commit exec', async () => {
+      await service.merge('feature', { squash: true, noCommit: true });
+      expect(calls[0]).toEqual(['merge', 'feature', '--squash', '--no-commit']);
+      // No second `commit --no-edit` call.
+      expect(calls.length).toBe(1);
+    });
+
     it('commitFixup runs commit --fixup <hash>', async () => {
       await service.commitFixup('abc1234');
       expect(calls[0]).toEqual(['commit', '--fixup', 'abc1234']);

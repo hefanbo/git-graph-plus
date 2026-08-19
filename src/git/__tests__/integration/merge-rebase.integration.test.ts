@@ -76,6 +76,38 @@ describe('GitService integration — merge / rebase / cherry-pick / revert', () 
       const files = runGit(repo.path, ['show', '--name-only', '--format=', 'HEAD']).trim().split('\n');
       expect(files).toEqual(expect.arrayContaining(['b.txt', 'c.txt']));
     });
+
+    it('--no-commit merges without creating a commit, leaving a merge in progress', async () => {
+      commit(repo.path, 'init', { 'a.txt': 'a\n' });
+      const base = head(repo.path);
+      runGit(repo.path, ['checkout', '-b', 'topic']);
+      commit(repo.path, 'topic-only', { 'b.txt': 'b\n' });
+      runGit(repo.path, ['checkout', 'main']);
+
+      await svc.merge('topic', { noFf: true, noCommit: true });
+      // HEAD has not moved and the merge is recorded as in-progress.
+      expect(head(repo.path)).toBe(base);
+      expect(existsSync(join(repo.path, '.git', 'MERGE_HEAD'))).toBe(true);
+      const state = await svc.getOperationState();
+      expect(state.type).toBe('merge');
+      // The merged content is staged for review, not committed.
+      const staged = runGit(repo.path, ['diff', '--cached', '--name-only']).trim().split('\n');
+      expect(staged).toContain('b.txt');
+    });
+
+    it('--squash --no-commit stages changes without the automatic commit', async () => {
+      commit(repo.path, 'init', { 'a.txt': 'a\n' });
+      const base = head(repo.path);
+      runGit(repo.path, ['checkout', '-b', 'topic']);
+      commit(repo.path, 'topic-only', { 'b.txt': 'b\n' });
+      runGit(repo.path, ['checkout', 'main']);
+
+      await svc.merge('topic', { squash: true, noCommit: true });
+      // squash already doesn't autocommit; noCommit skips our follow-up commit.
+      expect(head(repo.path)).toBe(base);
+      const staged = runGit(repo.path, ['diff', '--cached', '--name-only']).trim().split('\n');
+      expect(staged).toContain('b.txt');
+    });
   });
 
   describe('rebase', () => {

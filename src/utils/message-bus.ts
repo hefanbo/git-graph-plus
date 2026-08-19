@@ -9,7 +9,7 @@ export interface ModalDefaults {
   push: { force: 'none' | 'with-lease' | 'force'; setUpstream: boolean; allTags: boolean };
   pull: { rebase: boolean; stash: boolean };
   fetch: { allRemotes: boolean };
-  merge: { mode: 'default' | 'no-ff' | 'squash'; pushAfter: boolean; deleteSource: boolean; strategyOurs: boolean };
+  merge: { mode: 'default' | 'no-ff' | 'squash'; pushAfter: boolean; deleteSource: boolean; strategyOurs: boolean; noCommit: boolean };
   rebase: { autostash: boolean; pushAfter: boolean };
   amend: { keepMessage: boolean; resetDate: boolean; resetAuthor: boolean; only: boolean; pushAfter: boolean };
   checkout: { dirty: 'keep' | 'stash' | 'discard' };
@@ -41,7 +41,7 @@ export type WebviewMessage =
   | { type: 'deleteBranch'; payload: { name: string; force?: boolean; worktreePath?: string; deleteRemote?: boolean } }
   | { type: 'deleteRemoteBranch'; payload: { remote: string; name: string } }
   | { type: 'renameBranch'; payload: { oldName: string; newName: string } }
-  | { type: 'merge'; payload: { branch: string; noFf?: boolean; ffOnly?: boolean; squash?: boolean; strategyOurs?: boolean; pushAfter?: boolean; deleteSource?: boolean } }
+  | { type: 'merge'; payload: { branch: string; noFf?: boolean; ffOnly?: boolean; squash?: boolean; strategyOurs?: boolean; noCommit?: boolean; pushAfter?: boolean; deleteSource?: boolean } }
   | { type: 'fastForward'; payload: { local: string; remote: string; stash?: boolean; stashUntracked?: boolean; clean?: boolean; noCheckout?: boolean } }
   | { type: 'abortMerge' }
   | { type: 'rebase'; payload: { onto: string; autostash?: boolean; pushAfter?: boolean } }
