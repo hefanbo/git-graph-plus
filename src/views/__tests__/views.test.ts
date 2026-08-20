@@ -247,12 +247,12 @@ describe.each(lifecycleCases)('$name provider lifecycle', ({ make, data }) => {
 });
 
 describe('StatusBarManager', () => {
-  it('creates a right-aligned status item wired to the open command, and disposes it', () => {
+  it('creates a left-aligned status item wired to the open command, and disposes it', () => {
     const createFn = vscode.window.createStatusBarItem as unknown as ReturnType<typeof vi.fn>;
     const mgr = new StatusBarManager();
-    expect(createFn).toHaveBeenCalledWith(2 /* Right */, 0);
+    expect(createFn).toHaveBeenCalledWith(1 /* Left */, 0);
     const item = createFn.mock.results.at(-1)!.value;
-    expect(item.text).toBe('$(git-merge)');
+    expect(item.text).toBe('$(git-merge) Git');
     expect(item.command).toBe('gitGraphPlus.open');
     expect(item.tooltip).toContain('Git Graph+');
     expect(item.show).toHaveBeenCalled();
