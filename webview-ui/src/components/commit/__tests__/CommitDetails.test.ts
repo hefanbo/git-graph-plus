@@ -984,6 +984,25 @@ describe('CommitDetails — file context menu actions', () => {
     expect((req!.data as { payload: { file: string } }).payload.file).toBe('src/a.ts');
   });
 
+  it('"Open file at revision" posts openFileAtRevision with path + commit hash', async () => {
+    const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
+    deliverCommitDiff('h1', [{ path: 'src/a.ts', status: 'M' }]);
+    await openMenu(container);
+    const menuItems = Array.from(document.querySelectorAll<HTMLButtonElement>('.context-menu button, .menu-item, [role="menuitem"]'));
+    const item = menuItems.find(b => /revision/i.test(b.textContent ?? ''));
+    expect(item).toBeDefined();
+    globalThis.__postedMessages = [];
+    await fireEvent.click(item!);
+    const req = globalThis.__postedMessages.find(
+      (m) => (m.data as { type?: string }).type === 'openFileAtRevision'
+    );
+    expect(req).toBeDefined();
+    expect((req!.data as { payload: { file: string; commitHash: string } }).payload).toMatchObject({
+      file: 'src/a.ts',
+      commitHash: 'h1',
+    });
+  });
+
   it('"Open changes" posts openDiff for the commit', async () => {
     const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
     deliverCommitDiff('h1', [{ path: 'a.ts', status: 'M' }]);

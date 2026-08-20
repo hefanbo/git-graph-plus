@@ -775,6 +775,19 @@ export class MainPanel {
           await vscode.window.showTextDocument(fileUri, { preview: false });
           break;
         }
+        case 'openFileAtRevision': {
+          // Validate the path before embedding it in the git: URI (same rules as
+          // openDiff). Open the blob at the given commit as a document via the
+          // built-in `git:` scheme so custom editors / the default editor route
+          // by file extension. Pass a title with the abbreviated hash so the tab
+          // reads `name (shortHash)` — same convention as the built-in Git
+          // extension's openHEADFile (`vscode.open` takes a `label` as its 4th arg).
+          const fullPath = this.resolveRepoRelativePath(message.payload.file, 'openFileAtRevision');
+          const uri = this.toGitUri(fullPath, message.payload.commitHash);
+          const title = `${path.basename(fullPath)} (${message.payload.commitHash.substring(0, 7)})`;
+          await vscode.commands.executeCommand('vscode.open', uri, { preview: true }, title);
+          break;
+        }
         case 'revealInExplorer': {
           const fullPath = this.resolveRepoRelativePath(message.payload.file, 'revealInExplorer');
           await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(fullPath));

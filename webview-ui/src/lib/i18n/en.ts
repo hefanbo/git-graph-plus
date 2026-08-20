@@ -654,6 +654,7 @@ export const en: Record<string, string> = {
 
   // File context menu
   'file.open': 'Open File',
+  'file.openAtRevision': 'Open File at Revision',
   'file.openChanges': 'Open Changes',
   'file.revealInExplorer': 'Reveal in File Explorer',
   'file.copyPath': 'Copy Path',

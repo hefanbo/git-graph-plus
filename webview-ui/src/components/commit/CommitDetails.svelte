@@ -938,11 +938,22 @@
                     contextMenuRowKey = node.path;
                     const items: Array<{ label: string; action: () => void; danger?: boolean; separator?: boolean }> = [];
 
-                    // Open file
+                    // Open file (working tree)
                     items.push({
                       label: t('file.open'),
                       action: () => { vscode.postMessage({ type: 'openFile', payload: { file: node.path } }); fileContextMenu = null; },
                     });
+
+                    // Open file at this commit (git: URI document, not a diff)
+                    if (commit) {
+                      items.push({
+                        label: t('file.openAtRevision'),
+                        action: () => {
+                          vscode.postMessage({ type: 'openFileAtRevision', payload: { file: node.path, commitHash: commit.hash } });
+                          fileContextMenu = null;
+                        },
+                      });
+                    }
 
                     // Open changes (diff)
                     items.push({

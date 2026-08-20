@@ -216,6 +216,36 @@ describe('MainPanel message routing', () => {
     expect(leftRef).toBe('4b825dc642cb6eb9a060e54bf8d69288fbee4904'); // empty tree base
   });
 
+  it('openFileAtRevision opens a git: URI document at the given commit (not a diff)', async () => {
+    const vscode = await import('vscode');
+
+    await dispatch({ type: 'openFileAtRevision', payload: { file: 'doc.pdf', commitHash: '2222222' } });
+
+    const openCall = (vscode.commands.executeCommand as ReturnType<typeof vi.fn>).mock.calls
+      .find(c => c[0] === 'vscode.open')!;
+    expect(openCall).toBeDefined();
+    const uri = openCall[1] as { scheme: string; query: string };
+    expect(uri.scheme).toBe('git');
+    const query = JSON.parse(uri.query) as { path: string; ref: string };
+    expect(query.path).toBe('/repo/doc.pdf');
+    expect(query.ref).toBe('2222222');
+    expect(openCall[2]).toEqual({ preview: true });
+    // Tab label mirrors the built-in Git extension: `name (shortHash)`
+    expect(openCall[3]).toBe('doc.pdf (2222222)');
+  });
+
+  it('openFileAtRevision never opens a URI for a path that escapes the repository', async () => {
+    const vscode = await import('vscode');
+
+    // MainPanel swallows routing errors (posts them to the webview instead), so
+    // assert the observable behaviour: no vscode.open is ever issued.
+    await dispatch({ type: 'openFileAtRevision', payload: { file: '../etc/passwd', commitHash: 'h1' } });
+
+    const openCalls = (vscode.commands.executeCommand as ReturnType<typeof vi.fn>).mock.calls
+      .filter(c => c[0] === 'vscode.open');
+    expect(openCalls.length).toBe(0);
+  });
+
   it('openDiff for a file added in a commit diffs the empty tree against the commit (parent lacks it)', async () => {
     const vscode = await import('vscode');
     H.git.resolveDiffBaseRef.mockResolvedValue('1111111111111111111111111111111111111111');

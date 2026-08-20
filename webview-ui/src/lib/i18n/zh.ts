@@ -655,6 +655,7 @@ export const zh: Record<string, string> = {
   // LFS
   'lfs.locked': '由 {owner} 锁定',
   'file.open': '打开文件',
+  'file.openAtRevision': '在修订版打开文件',
   'file.openChanges': '打开更改',
   'file.revealInExplorer': '在文件资源管理器中显示',
   'file.copyPath': '复制路径',

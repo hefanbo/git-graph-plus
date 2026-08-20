@@ -69,6 +69,7 @@ export type WebviewMessage =
   | { type: 'removeRemote'; payload: { name: string } }
   | { type: 'openDiff'; payload: { file: string; commitHash?: string; ref1?: string; ref2?: string; staged?: boolean } }
   | { type: 'openFile'; payload: { file: string } }
+  | { type: 'openFileAtRevision'; payload: { file: string; commitHash: string } }
   | { type: 'revealInExplorer'; payload: { file: string } }
   | { type: 'copyFilePath'; payload: { file: string } }
   | { type: 'openScmView'; payload?: { returnFocus?: boolean } }
