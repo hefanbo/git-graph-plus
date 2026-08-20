@@ -426,8 +426,8 @@ export class MainPanel {
       switch (message.type) {
         case 'getLog': {
           const cfg = vscode.workspace.getConfiguration('gitGraphPlus');
-          const sortOrder = cfg.get<'author-date' | 'date' | 'topological'>('graphSortOrder', 'topological');
-          const includeSignature = cfg.get<boolean>('showSignatureStatus', true);
+          const sortOrder = cfg.get<'author-date' | 'date' | 'topological'>('graphSortOrder', 'date');
+          const includeSignature = cfg.get<boolean>('showSignatureStatus', false);
           const requestedLimit = message.payload.limit ?? readInitialCommitCount();
           this.currentLimit = requestedLimit;
           // On first load, apply saved filter if the webview didn't specify one.
@@ -1857,8 +1857,8 @@ export class MainPanel {
     this.fileWatcher.suppress();
     try {
       const refreshCfg = vscode.workspace.getConfiguration('gitGraphPlus');
-      const sortOrder = refreshCfg.get<'author-date' | 'date' | 'topological'>('graphSortOrder', 'topological');
-      const includeSignature = refreshCfg.get<boolean>('showSignatureStatus', true);
+      const sortOrder = refreshCfg.get<'author-date' | 'date' | 'topological'>('graphSortOrder', 'date');
+      const includeSignature = refreshCfg.get<boolean>('showSignatureStatus', false);
       const refreshLimit = this.currentLimit || readInitialCommitCount();
       // Until the webview's first getLog establishes this session's filter,
       // mirror the saved filter that getLog will apply (same logic as the

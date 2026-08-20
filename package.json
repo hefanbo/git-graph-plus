@@ -441,13 +441,13 @@
             "Sort commits by committer date (--date-order)",
             "Sort commits by topology, parents after children (--topo-order)"
           ],
-          "default": "topological",
+          "default": "date",
           "description": "Commit sort order in the graph"
         },
         "gitGraphPlus.showSignatureStatus": {
           "type": "boolean",
-          "default": true,
-          "markdownDescription": "Show a GPG/SSH signature status icon next to each commit in the graph. ⚠️ This verifies the signature of every commit in the log, which can slow down loading on very large repositories — turn it off if you notice slow graph loading. The Commit Details panel always shows signature status on demand regardless of this setting."
+          "default": false,
+          "markdownDescription": "Show a GPG/SSH signature status icon next to each commit in the graph. ⚠️ This verifies the signature of every commit in the log, which can slow down loading on large repositories, so it is off by default. The Commit Details panel always shows signature status on demand regardless of this setting."
         },
         "gitGraphPlus.branchBadgeBarThickness": {
           "type": "string",
