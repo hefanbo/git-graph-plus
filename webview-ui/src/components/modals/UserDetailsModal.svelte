@@ -15,7 +15,7 @@
 
   let name = $state('');
   let email = $state('');
-  let useGlobally = $state(true);
+  let useGlobally = $state(false);
   let initialized = $state(false);
   let nameInput: HTMLInputElement | undefined = $state();
 
@@ -27,9 +27,8 @@
     if (!initialized && userDetails) {
       name = userDetails.name.local ?? userDetails.name.global ?? '';
       email = userDetails.email.local ?? userDetails.email.global ?? '';
-      // Default to "global" when there is no local override, matching the
-      // effective scope the values currently resolve from.
-      useGlobally = userDetails.name.local === null && userDetails.email.local === null;
+      // Keep "Use globally" unchecked by default; writing to the local scope
+      // is the safe default and avoids touching the shared global config.
       initialized = true;
     }
   });
