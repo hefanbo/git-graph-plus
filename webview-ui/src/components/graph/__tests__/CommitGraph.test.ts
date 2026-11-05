@@ -469,6 +469,62 @@ describe('CommitGraph signature icon', () => {
   });
 });
 
+describe('CommitGraph — remote branch badges', () => {
+  it('collapses a tracked remote branch to a cloud-only badge when names match', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [
+      { type: 'branch', name: 'feature-x' },
+      { type: 'remote-branch', name: 'feature-x', remote: 'origin' },
+    ];
+    commitStore.setData(makeGraphData([c]));
+    branchStore.branches = [
+      { name: 'feature-x', current: true, upstream: 'origin/feature-x', ahead: 0, behind: 0, hash: 'h1' },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('.badge-cloud-only')).toBeTruthy();
+    // The full remote name is suppressed — only the cloud companion + local badge show.
+    const badgeTexts = Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
+    expect(badgeTexts.some(t => t.includes('origin/feature-x'))).toBe(false);
+    expect(badgeTexts.some(t => t.includes('feature-x'))).toBe(true);
+  });
+
+  it('keeps the full remote badge when the tracked upstream has a different name', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [
+      { type: 'branch', name: 'develop' },
+      { type: 'remote-branch', name: 'main', remote: 'origin' },
+    ];
+    commitStore.setData(makeGraphData([c]));
+    branchStore.branches = [
+      { name: 'develop', current: true, upstream: 'origin/main', ahead: 0, behind: 0, hash: 'h1' },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('.badge-cloud-only')).toBeFalsy();
+    const badgeTexts = Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
+    expect(badgeTexts.some(t => t.includes('origin/main'))).toBe(true);
+    expect(badgeTexts.some(t => t.includes('develop'))).toBe(true);
+  });
+
+  it('shows the full remote badge for a same-named branch without upstream tracking', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [
+      { type: 'branch', name: 'feature-x' },
+      { type: 'remote-branch', name: 'feature-x', remote: 'origin' },
+    ];
+    commitStore.setData(makeGraphData([c]));
+    branchStore.branches = [
+      { name: 'feature-x', current: true, ahead: 0, behind: 0, hash: 'h1' }, // no upstream
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    expect(container.querySelector('.badge-cloud-only')).toBeFalsy();
+    const badgeTexts = Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
+    expect(badgeTexts.some(t => t.includes('origin/feature-x'))).toBe(true);
+  });
+});
+
 describe('CommitGraph — auto-load on scroll', () => {
   function driveScrollToBottom(graph: HTMLElement) {
     // happy-dom does no layout, so clientHeight/scrollHeight/scrollTop stay 0;

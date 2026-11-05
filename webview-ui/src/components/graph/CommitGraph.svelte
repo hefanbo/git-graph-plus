@@ -1564,13 +1564,15 @@
                   if (r.type === 'remote-branch') {
                     if (r.name === 'HEAD') return false;
                     if (remoteFilter.length > 0 && !remoteFilter.includes(r.remote ?? '')) return false;
-                    // Tracked remote branches are shown as cloud-only badges alongside the local badge.
+                    // Tracked remote branches whose name matches the local branch are shown as
+                    // cloud-only badges alongside the local badge. When the names differ the full
+                    // remote badge is kept — the name can't be inferred from the local badge.
                     // Skip this optimization when local badges are hidden — show the full remote badge instead.
                     if (remoteFilter.length === 0 || remoteFilter.includes('local')) {
                       const localRefs = commit.refs.filter(lr => lr.type === 'branch' || lr.type === 'head');
                       for (const lr of localRefs) {
                         const localInfo = localBranchMap.get(lr.name);
-                        if (localInfo?.upstream === `${r.remote}/${r.name}`) return false;
+                        if (lr.name === r.name && localInfo?.upstream === `${r.remote}/${r.name}`) return false;
                       }
                     }
                   }
@@ -1585,7 +1587,9 @@
                   {@const hasRemote = (ref.type === 'branch' || ref.type === 'head') && (() => {
                     const localInfo = localBranchMap.get(ref.name);
                     if (!localInfo?.upstream) return false;
-                    return commit.refs.some(r => r.type === 'remote-branch' && `${r.remote}/${r.name}` === localInfo.upstream);
+                    // Only pair up with a same-named remote branch — a differently named
+                    // upstream keeps its own full badge, so no cloud companion is needed.
+                    return commit.refs.some(r => r.type === 'remote-branch' && r.name === ref.name && `${r.remote}/${r.name}` === localInfo.upstream);
                   })()}
                   {@const trackedUpstream = (ref.type === 'branch' || ref.type === 'head') ? (localBranchMap.get(ref.name)?.upstream ?? null) : null}
                   {@const isWtBranch = (ref.type === 'branch' || ref.type === 'head') && worktreeBranches.has(ref.name)}
