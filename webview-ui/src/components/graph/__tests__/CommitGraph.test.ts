@@ -470,59 +470,118 @@ describe('CommitGraph signature icon', () => {
   });
 });
 
-describe('CommitGraph — remote branch badges', () => {
-  it('collapses a tracked remote branch to a cloud-only badge when names match', async () => {
+describe('CommitGraph — ref badges', () => {
+  const badgeTexts = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
+  const sourceTexts = (container: HTMLElement) =>
+    Array.from(container.querySelectorAll('.badge-source')).map(el => (el.textContent ?? '').trim());
+
+  it('merges same-named local and remote refs into one badge listing every source', async () => {
     const c = makeCommit('h1', 'work');
     c.refs = [
       { type: 'branch', name: 'feature-x' },
       { type: 'remote-branch', name: 'feature-x', remote: 'origin' },
     ];
     commitStore.setData(makeGraphData([c]));
-    branchStore.branches = [
-      { name: 'feature-x', current: true, upstream: 'origin/feature-x', ahead: 0, behind: 0, hash: 'h1' },
-    ];
     const { container } = render(CommitGraph, {});
     await tick();
-    expect(container.querySelector('.badge-cloud-only')).toBeTruthy();
-    // The full remote name is suppressed — only the cloud companion + local badge show.
-    const badgeTexts = Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
-    expect(badgeTexts.some(t => t.includes('origin/feature-x'))).toBe(false);
-    expect(badgeTexts.some(t => t.includes('feature-x'))).toBe(true);
+
+    expect(container.querySelectorAll('.ref-badge').length).toBe(1);
+    // Sources: ☁origin then the local folder marker; separators after each.
+    expect(sourceTexts(container)).toEqual(['origin', '']);
+    expect(container.querySelectorAll('.badge-sep').length).toBe(2);
+    expect(container.querySelector('.codicon-folder')).toBeTruthy();
+    expect(badgeTexts(container)[0]).toContain('feature-x');
   });
 
-  it('keeps the full remote badge when the tracked upstream has a different name', async () => {
+  it('lists multiple remotes alphabetically with the local marker last', async () => {
     const c = makeCommit('h1', 'work');
     c.refs = [
-      { type: 'branch', name: 'develop' },
-      { type: 'remote-branch', name: 'main', remote: 'origin' },
+      { type: 'head', name: 'master' },
+      { type: 'remote-branch', name: 'master', remote: 'upstream' },
+      { type: 'remote-branch', name: 'master', remote: 'origin' },
     ];
     commitStore.setData(makeGraphData([c]));
-    branchStore.branches = [
-      { name: 'develop', current: true, upstream: 'origin/main', ahead: 0, behind: 0, hash: 'h1' },
-    ];
     const { container } = render(CommitGraph, {});
     await tick();
-    expect(container.querySelector('.badge-cloud-only')).toBeFalsy();
-    const badgeTexts = Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
-    expect(badgeTexts.some(t => t.includes('origin/main'))).toBe(true);
-    expect(badgeTexts.some(t => t.includes('develop'))).toBe(true);
+
+    expect(sourceTexts(container)).toEqual(['origin', 'upstream', '']);
+    expect(container.querySelector('.codicon-check')).toBeTruthy();
+    expect(container.querySelectorAll('.ref-badge').length).toBe(1);
   });
 
-  it('shows the full remote badge for a same-named branch without upstream tracking', async () => {
+  it('sorts branch badges alphabetically and renders tags first, stashes last', async () => {
     const c = makeCommit('h1', 'work');
     c.refs = [
-      { type: 'branch', name: 'feature-x' },
-      { type: 'remote-branch', name: 'feature-x', remote: 'origin' },
+      { type: 'branch', name: 'myfix' },
+      { type: 'remote-branch', name: 'chore/next', remote: 'origin' },
+      { type: 'tag', name: 'v1' },
+      { type: 'stash', name: 'stash@{0}' },
     ];
     commitStore.setData(makeGraphData([c]));
-    branchStore.branches = [
-      { name: 'feature-x', current: true, ahead: 0, behind: 0, hash: 'h1' }, // no upstream
+    const { container } = render(CommitGraph, {});
+    await tick();
+
+    const texts = badgeTexts(container);
+    expect(texts.length).toBe(4);
+    expect(texts[0]).toContain('v1');               // tag first
+    expect(texts[1]).toContain('chore/next');       // alphabetical branch group
+    expect(texts[2]).toContain('myfix');
+    expect(texts[3]).toContain('stash@{0}');        // stash last
+  });
+
+  it('renders a remote-only badge with cloud + remote name and no local marker', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [{ type: 'remote-branch', name: 'feat/ui', remote: 'origin' }];
+    commitStore.setData(makeGraphData([c]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+
+    expect(sourceTexts(container)).toEqual(['origin']);
+    expect(container.querySelectorAll('.badge-sep').length).toBe(1);
+    expect(container.querySelector('.codicon-folder')).toBeFalsy();
+    expect(badgeTexts(container)[0]).toContain('feat/ui');
+  });
+
+  it('renders a local-only badge without sources or separators', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [{ type: 'branch', name: 'fix/user' }];
+    commitStore.setData(makeGraphData([c]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+
+    expect(sourceTexts(container)).toEqual([]);
+    expect(container.querySelectorAll('.badge-sep').length).toBe(0);
+    expect(badgeTexts(container)[0]).toContain('fix/user');
+  });
+
+  it('filters sources with remoteFilter before grouping', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [
+      { type: 'branch', name: 'master' },
+      { type: 'remote-branch', name: 'master', remote: 'origin' },
+      { type: 'remote-branch', name: 'master', remote: 'upstream' },
+    ];
+    commitStore.setData(makeGraphData([c]));
+    const { container } = render(CommitGraph, { remoteFilter: ['origin'] });
+    await tick();
+
+    expect(sourceTexts(container)).toEqual(['origin']);
+    expect(container.querySelector('.codicon-folder')).toBeFalsy();
+    expect(badgeTexts(container)[0]).toContain('master');
+  });
+
+  it('marks a worktree-linked local branch with the worktree icon', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [{ type: 'branch', name: 'wt' }];
+    commitStore.setData(makeGraphData([c]));
+    branchStore.worktrees = [
+      { path: '/wt', hash: 'h1', branch: 'wt', detached: false, locked: false, prunable: false, isMain: false },
     ];
     const { container } = render(CommitGraph, {});
     await tick();
-    expect(container.querySelector('.badge-cloud-only')).toBeFalsy();
-    const badgeTexts = Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
-    expect(badgeTexts.some(t => t.includes('origin/feature-x'))).toBe(true);
+
+    expect(container.querySelector('.codicon-worktree')).toBeTruthy();
   });
 });
 

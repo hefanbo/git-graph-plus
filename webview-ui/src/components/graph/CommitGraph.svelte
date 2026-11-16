@@ -8,6 +8,7 @@
   import { avatarStore } from '../../lib/stores/avatars.svelte';
   import { requestDirtyState } from '../../lib/utils/dirty-check';
   import { resolveGraphColor } from '../../lib/utils/graph-color';
+  import { buildRefBadges, type RefBadges } from '../../lib/utils/ref-badges';
   import { graphColorsStore } from '../../lib/stores/graph-colors.svelte';
   import ContextMenu from '../common/ContextMenu.svelte';
   import InteractiveRebase from '../rebase/InteractiveRebase.svelte';
@@ -340,6 +341,15 @@
   let isSearchActive = $derived(searchMatchedHashes !== null);
 
   let displayCommits = $derived(commitStore.commits);
+  // Precompute the grouped badge model per commit. Rebuilds when the commit
+  // list, the remote filter, or worktree assignments change.
+  let refBadgesByHash = $derived.by(() => {
+    const map = new Map<string, RefBadges>();
+    for (const commit of displayCommits) {
+      map.set(commit.hash, buildRefBadges(commit.refs, { remoteFilter, worktreeBranches }));
+    }
+    return map;
+  });
   let displayPaths = $derived(commitStore.paths);
   let displayLinks = $derived(commitStore.links);
   let displayDots = $derived(commitStore.dots);
@@ -1553,98 +1563,60 @@
               {:else if currentBranchRemoteAhead.has(commit.hash)}
                 <span class="remote-dot" use:tooltip={t('graph.remoteOnly')}></span>
               {/if}
-              {#each commit.refs.filter(r => {
-                  if (r.type === 'working-dir') return false;
-                  if (r.type === 'remote-branch') {
-                    if (r.name === 'HEAD') return false;
-                    if (remoteFilter.length > 0 && !remoteFilter.includes(r.remote ?? '')) return false;
-                    // Tracked remote branches whose name matches the local branch are shown as
-                    // cloud-only badges alongside the local badge. When the names differ the full
-                    // remote badge is kept — the name can't be inferred from the local badge.
-                    // Skip this optimization when local badges are hidden — show the full remote badge instead.
-                    if (remoteFilter.length === 0 || remoteFilter.includes('local')) {
-                      const localRefs = commit.refs.filter(lr => lr.type === 'branch' || lr.type === 'head');
-                      for (const lr of localRefs) {
-                        const localInfo = localBranchMap.get(lr.name);
-                        if (lr.name === r.name && localInfo?.upstream === `${r.remote}/${r.name}`) return false;
-                      }
+              <!-- Tags first, then merged branch badges (alphabetical), then stashes. -->
+              {#each refBadgesByHash.get(commit.hash)?.tags ?? [] as tag (tag.name)}
+                <span class="ref-badge badge-fixed" style="--badge-color: #f0c040;">
+                  <i class="codicon codicon-tag ref-icon"></i>
+                  {tag.name}
+                </span>
+              {/each}
+              {#each refBadgesByHash.get(commit.hash)?.branches ?? [] as group (group.name)}
+                {@const isWtBranch = group.hasLocal && group.isWorktree}
+                {@const badgeColor = isWtBranch ? '#4caf50' : nodeColor}
+                <!-- Drag-to-rebase/merge is a pointer-only affordance on branch
+                     badges; the badge itself has no click/keyboard action. -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span
+                  class="ref-badge"
+                  style="--badge-color: {badgeColor};"
+                  class:badge-fixed={isWtBranch}
+                  class:badge-head={group.isHead}
+                  draggable={group.hasLocal}
+                  class:drag-over={dragOverBranch === group.name && group.hasLocal}
+                  ondragstart={(e) => {
+                    if (!group.hasLocal) return;
+                    dragSourceBranch = group.name;
+                    e.dataTransfer?.setData('text/plain', group.name);
+                  }}
+                  ondragover={(e) => {
+                    if (group.hasLocal && dragSourceBranch && dragSourceBranch !== group.name) {
+                      e.preventDefault();
+                      dragOverBranch = group.name;
                     }
-                  }
-                  if ((r.type === 'branch' || r.type === 'head') && remoteFilter.length > 0 && !remoteFilter.includes('local')) {
-                    return false;
-                  }
-                  return true;
-                }).sort((a, b) => {
-                  const order = { head: 0, branch: 1, 'remote-branch': 2, tag: 3, stash: 4, 'working-dir': 5 };
-                  return (order[a.type] ?? 4) - (order[b.type] ?? 4);
-                }) as ref}
-                  {@const hasRemote = (ref.type === 'branch' || ref.type === 'head') && (() => {
-                    const localInfo = localBranchMap.get(ref.name);
-                    if (!localInfo?.upstream) return false;
-                    // Only pair up with a same-named remote branch — a differently named
-                    // upstream keeps its own full badge, so no cloud companion is needed.
-                    return commit.refs.some(r => r.type === 'remote-branch' && r.name === ref.name && `${r.remote}/${r.name}` === localInfo.upstream);
-                  })()}
-                  {@const trackedUpstream = (ref.type === 'branch' || ref.type === 'head') ? (localBranchMap.get(ref.name)?.upstream ?? null) : null}
-                  {@const isWtBranch = (ref.type === 'branch' || ref.type === 'head') && worktreeBranches.has(ref.name)}
-                  {@const badgeColor = ref.type === 'tag' ? '#f0c040' : ref.type === 'stash' ? 'var(--text-secondary, #888)' : isWtBranch ? '#4caf50' : nodeColor}
-                  {@const showCloudOnly = hasRemote && trackedUpstream && (remoteFilter.length === 0 || (remoteFilter.includes('local') && remoteFilter.includes(trackedUpstream.split('/')[0])))}
-                  {#if showCloudOnly}
-                    <span
-                      class="ref-badge badge-cloud-only"
-                      style="--badge-color: {badgeColor};"
-                      class:badge-head={ref.type === 'head'}
-                      class:badge-fixed={isWtBranch}
-                      use:tooltip={trackedUpstream ?? ''}
-                    >
-                      <i class="codicon codicon-cloud ref-icon"></i>
-                    </span>
+                  }}
+                  ondragleave={() => { if (dragOverBranch === group.name) dragOverBranch = null; }}
+                  ondrop={(e) => { if (group.hasLocal) onBranchDrop(e, group.name); }}
+                  ondragend={() => { dragSourceBranch = null; dragOverBranch = null; }}
+                >
+                  {#each group.remotes as remote (remote)}
+                    <span class="badge-source"><i class="codicon codicon-cloud ref-icon"></i>{remote}</span>
+                    <span class="badge-sep" aria-hidden="true"></span>
+                  {/each}
+                  {#if group.hasLocal && group.remotes.length > 0 && !group.isDetachedHead}
+                    <span class="badge-source"><i class="codicon codicon-folder ref-icon"></i></span>
+                    <span class="badge-sep" aria-hidden="true"></span>
                   {/if}
-                  <!-- Drag-to-rebase/merge is a pointer-only affordance on branch
-                       badges; the badge itself has no click/keyboard action. -->
-                  <!-- svelte-ignore a11y_no_static_element_interactions -->
-                  <span
-                    class="ref-badge"
-                    style="--badge-color: {badgeColor};{ref.type === 'stash' ? ' --fixed-tint: 28%;' : ''}"
-                    class:badge-fixed={ref.type === 'tag' || ref.type === 'stash' || isWtBranch}
-                    class:badge-head={ref.type === 'head'}
-                    class:badge-no-bar={showCloudOnly}
-                    draggable={ref.type === 'branch' || ref.type === 'head'}
-                    class:drag-over={dragOverBranch === ref.name && (ref.type === 'branch' || ref.type === 'head')}
-                    ondragstart={(e) => {
-                      if (ref.type !== 'branch' && ref.type !== 'head') return;
-                      dragSourceBranch = ref.name;
-                      e.dataTransfer?.setData('text/plain', ref.name);
-                    }}
-                    ondragover={(e) => {
-                      if ((ref.type === 'branch' || ref.type === 'head') && dragSourceBranch && dragSourceBranch !== ref.name) {
-                        e.preventDefault();
-                        dragOverBranch = ref.name;
-                      }
-                    }}
-                    ondragleave={() => { if (dragOverBranch === ref.name) dragOverBranch = null; }}
-                    ondrop={(e) => { if (ref.type === 'branch' || ref.type === 'head') onBranchDrop(e, ref.name); }}
-                    ondragend={() => { dragSourceBranch = null; dragOverBranch = null; }}
-                  >
-                    {#if ref.type === 'head'}
-                      <i class="codicon codicon-check ref-icon"></i>
-                      {#if worktreeBranches.has(ref.name)}<i class="codicon codicon-worktree ref-icon"></i>{/if}
-                      {ref.name}
-                    {:else if ref.type === 'remote-branch'}
-                      <i class="codicon codicon-cloud ref-icon"></i>
-                      {ref.remote}/{ref.name}
-                    {:else if ref.type === 'tag'}
-                      <i class="codicon codicon-tag ref-icon"></i>
-                      {ref.name}
-                    {:else if ref.type === 'stash'}
-                      <i class="codicon codicon-archive ref-icon"></i>
-                      {ref.name}
-                    {:else}
-                      {#if (ref.type === 'branch') && worktreeBranches.has(ref.name)}<i class="codicon codicon-worktree ref-icon"></i>{/if}
-                      {ref.name}
-                    {/if}
-                  </span>
-                {/each}
+                  {#if group.isHead}<i class="codicon codicon-check ref-icon"></i>{/if}
+                  {#if group.hasLocal && group.isWorktree}<i class="codicon codicon-worktree ref-icon"></i>{/if}
+                  {group.name}
+                </span>
+              {/each}
+              {#each refBadgesByHash.get(commit.hash)?.stashes ?? [] as stash (stash.name)}
+                <span class="ref-badge badge-fixed" style="--badge-color: var(--text-secondary, #888); --fixed-tint: 28%;">
+                  <i class="codicon codicon-archive ref-icon"></i>
+                  {stash.name}
+                </span>
+              {/each}
                 {#if commit.hash === 'UNCOMMITTED'}
                   {@const counts = JSON.parse(commit.body || '{}')}
                   {@const label = t('graph.uncommitted', { staged: counts.staged ?? 0, unstaged: counts.unstaged ?? 0 })}
@@ -2395,12 +2367,20 @@
     -webkit-text-stroke: 1px currentColor;
   }
 
-  /* Paired local badge whose colored bar lives on the cloud companion instead. */
-  .ref-badge.badge-no-bar {
-    padding-left: 7px;
+  /* Merged badge layout: [☁remote | ☁remote | 🗀 | ✓ name]. */
+  .badge-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
   }
-  .ref-badge.badge-no-bar::before {
-    content: none;
+
+  /* Separator between sources and before the branch name. */
+  .badge-sep {
+    width: 1px;
+    height: 11px;
+    flex-shrink: 0;
+    background: currentColor;
+    opacity: 0.3;
   }
 
   /* Light theme overrides */
@@ -2426,34 +2406,14 @@
     border: 1px solid var(--badge-color);
   }
 
-  .badge-cloud-only {
-    padding: 1px 5px 1px calc(var(--badge-bar-width, 4px) + 4px);
-    height: calc(17px + 2px + 2px); /* line-height + padding top/bottom + border */
-    box-sizing: border-box;
-  }
-
-  /* Pull the local name badge closer to its cloud companion: tightens the
-     .col-message flex gap (5px) down to 2px for this pair only, so the two
-     read as a single unit. */
-  .badge-cloud-only + .ref-badge {
-    margin-left: -3px;
-  }
-
   /* Hover highlight: a translucent inset overlay painted below the text and the
      accent bar, so it stays visible even on the near-transparent regular-branch
-     fill while preserving each badge's tint. Cloud pairs highlight as a unit:
-     hovering either the cloud companion or the local name badge highlights both
-     (:hover covers the directly-hovered one; the other two selectors cover its
-     paired sibling in each direction). */
-  .ref-badge:hover,
-  .badge-cloud-only:hover + .ref-badge,
-  .badge-cloud-only:has(+ .ref-badge:hover) {
+     fill while preserving the badge's tint. */
+  .ref-badge:hover {
     box-shadow: inset 0 0 0 100px rgba(255, 255, 255, 0.12);
   }
 
-  :global(body.vscode-light) .ref-badge:hover,
-  :global(body.vscode-light) .badge-cloud-only:hover + .ref-badge,
-  :global(body.vscode-light) .badge-cloud-only:has(+ .ref-badge:hover) {
+  :global(body.vscode-light) .ref-badge:hover {
     box-shadow: inset 0 0 0 100px rgba(0, 0, 0, 0.06);
   }
 
