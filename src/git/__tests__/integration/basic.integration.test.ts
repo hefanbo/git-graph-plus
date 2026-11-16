@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { GitService } from '../../git-service';
-import { TempRepo, commit, createTempRepo, runGit, seedBranches, currentBranch } from './helpers';
+import { TempRepo, commit, createTempRepo, runGit, seedBranches, currentBranch, writeFile } from './helpers';
 
 describe('GitService integration — basic queries', () => {
   let repo: TempRepo;
@@ -42,6 +42,22 @@ describe('GitService integration — basic queries', () => {
 
       const withReflog = await svc.log({ includeReflog: true });
       expect(withReflog.map(c => c.hash)).toContain(c2);
+    });
+
+    it('does not duplicate a stash commit when includeReflog walks refs/stash', async () => {
+      commit(repo.path, 'first', { 'a.txt': '1\n' });
+      // Create a stash so refs/stash has a reflog entry. `--reflog` walks it,
+      // pulling the stash commit into the log; the synthetic stash row must not
+      // add a second copy of the same hash (which crashes the webview's keyed
+      // {#each (commit.hash)} with each_key_duplicate).
+      writeFile(repo.path, 'a.txt', '2\n');
+      runGit(repo.path, ['stash', 'push', '-m', 'repro stash']);
+
+      const commits = await svc.log({ includeReflog: true });
+      const hashes = commits.map(c => c.hash);
+      expect(new Set(hashes).size).toBe(hashes.length);
+      const stashRows = commits.filter(c => c.refs.some(r => r.type === 'stash'));
+      expect(stashRows).toHaveLength(1);
     });
 
     it('does not prepend the UNCOMMITTED row on paginated (skip>0) pages', async () => {

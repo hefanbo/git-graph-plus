@@ -593,6 +593,20 @@ export class GitService {
     const raw = await this.exec(args);
     const commits = parseLog(raw);
 
+    // `--reflog` walks refs/stash's reflog too, so the stash commits themselves
+    // may already be in the parsed log. Drop those copies before the synthetic
+    // stash rows are inserted below: otherwise the same hash appears twice and
+    // the webview's keyed `{#each ... (commit.hash)}` throws
+    // `each_key_duplicate`, leaving the graph unrendered. This can also happen
+    // without --reflog in the rare case where a stash commit is otherwise
+    // reachable from a branch, so the dedupe is unconditional.
+    if (stashes.length > 0) {
+      const stashHashSet = new Set(stashes.map(s => s.hash).filter(Boolean));
+      for (let i = commits.length - 1; i >= 0; i--) {
+        if (stashHashSet.has(commits[i].hash)) commits.splice(i, 1);
+      }
+    }
+
     // Insert stash commits into the graph as separate rows
     if (stashes.length > 0) {
       const stashHashes = stashes.map(s => s.hash).filter(Boolean) as string[];
