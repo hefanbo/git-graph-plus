@@ -378,6 +378,15 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(
           vscode.window.onDidChangeActiveTextEditor(editor => {
             if (!editor) { return; }
+            // While the Git Graph+ panel is open, its repo dropdown is the
+            // source of truth. Switching editor tabs (typically to a file in
+            // the workspace root or another repo) must not silently retarget
+            // the graph — otherwise the sidebar and panel snap back to the
+            // workspace root every time the panel loses/regains focus. Passive
+            // follow resumes once the panel is closed; explicit switches (the
+            // panel dropdown, or opening Git Graph from SCM) call
+            // `switchToRepo` directly and still take effect.
+            if (MainPanel.currentPanel) { return; }
             const repo = gitApi.getRepository(editor.document.uri);
             if (repo?.rootUri) { switchToRepo(repo.rootUri.fsPath); }
           })

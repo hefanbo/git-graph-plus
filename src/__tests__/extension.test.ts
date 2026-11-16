@@ -11,6 +11,11 @@ const H = vi.hoisted(() => ({
   workspaceFolders: undefined as Array<{ uri: { fsPath: string } }> | undefined,
   gitPathConfig: null as string | string[] | null,
   worktreeList: [] as Array<{ path: string; isMain: boolean }>,
+  // Built-in git API stub, installed only by the tests that exercise the
+  // active-editor repo-follow wiring.
+  gitApi: undefined as unknown,
+  activeEditorHandlers: [] as Array<(editor: unknown) => void>,
+  gitServicePaths: [] as string[],
 }));
 
 vi.mock('vscode', () => ({
@@ -34,14 +39,22 @@ vi.mock('vscode', () => ({
     showInformationMessage: vi.fn(async () => undefined),
     showErrorMessage: vi.fn(),
     showQuickPick: vi.fn(async () => undefined),
-    onDidChangeActiveTextEditor: () => ({ dispose() {} }),
+    onDidChangeActiveTextEditor: (cb: (editor: unknown) => void) => {
+      H.activeEditorHandlers.push(cb);
+      return { dispose() {} };
+    },
     activeTextEditor: undefined,
   },
   commands: {
     registerCommand: (id: string, cb: (...args: unknown[]) => unknown) => { H.registeredCommands.push(id); H.commandHandlers[id] = cb; return { dispose() {} }; },
     executeCommand: vi.fn(),
   },
-  extensions: { getExtension: () => undefined },
+  extensions: {
+    getExtension: (id: string) =>
+      id === 'vscode.git' && H.gitApi
+        ? { isActive: true, exports: { getAPI: () => H.gitApi } }
+        : undefined,
+  },
   l10n: { t: (s: string) => s },
   Uri: { joinPath: () => ({}), file: (p: string) => ({ fsPath: p }), parse: () => ({}) },
   ViewColumn: { One: 1 },
@@ -60,7 +73,13 @@ vi.mock('../panels/MainPanel', () => ({
     static onRepoChange: unknown = null;
   },
 }));
-vi.mock('../git/git-service', () => ({ GitService: class { setExtraEnv() {} setDefaultTimeout() {} get rootPath() { return '/repo'; } worktreeList() { return Promise.resolve(H.worktreeList); } } }));
+vi.mock('../git/git-service', () => ({ GitService: class {
+  constructor(path: string) { H.gitServicePaths.push(path); }
+  setExtraEnv() {}
+  setDefaultTimeout() {}
+  get rootPath() { return '/repo'; }
+  worktreeList() { return Promise.resolve(H.worktreeList); }
+} }));
 vi.mock('../services/file-watcher', () => ({ FileWatcher: class { enabled = true; suppress() {} dispose() {} } }));
 const viewStub = () => ({ ViewProvider: undefined });
 vi.mock('../views/branches-view', () => ({ BranchesViewProvider: class { refresh() {} dispose() {} setGitService() {} prefetch() { return Promise.resolve(); } getCurrentItem() { return null; } } }));
@@ -86,6 +105,9 @@ beforeEach(() => {
   H.workspaceFolders = undefined;
   H.gitPathConfig = null;
   H.worktreeList = [];
+  H.gitApi = undefined;
+  H.activeEditorHandlers = [];
+  H.gitServicePaths = [];
   vi.mocked(existsSync).mockReturnValue(true);
 });
 
@@ -159,5 +181,48 @@ describe('activate', () => {
       modal: 'addWorktree',
       defaultPath: '/repos/project.worktrees',
     });
+  });
+});
+
+describe('active-editor repo follow', () => {
+  async function activateWithGitApi() {
+    H.workspaceFolders = [{ uri: { fsPath: '/repo' } }];
+    H.gitApi = {
+      repositories: [],
+      onDidOpenRepository: () => ({ dispose() {} }),
+      getRepository: () => ({ rootUri: { fsPath: '/other-repo' } }),
+    };
+    const ctx = makeContext();
+    activate(ctx);
+    // The built-in git API is reached through a promise chain; let it settle
+    // so `onDidChangeActiveTextEditor` is registered.
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(H.activeEditorHandlers).toHaveLength(1);
+    return ctx;
+  }
+
+  it('does not retarget the graph while the Git Graph+ panel is open', async () => {
+    await activateWithGitApi();
+    const { MainPanel } = await import('../panels/MainPanel');
+    const switchRepo = vi.fn();
+    (MainPanel as unknown as { currentPanel: unknown }).currentPanel = { switchRepo };
+    H.gitServicePaths = [];
+
+    H.activeEditorHandlers[0]({ document: { uri: {} } });
+
+    expect(switchRepo).not.toHaveBeenCalled();
+    expect(H.gitServicePaths).toEqual([]);
+    (MainPanel as unknown as { currentPanel: unknown }).currentPanel = undefined;
+  });
+
+  it('follows the active editor repo when the panel is closed', async () => {
+    await activateWithGitApi();
+    const { MainPanel } = await import('../panels/MainPanel');
+    (MainPanel as unknown as { currentPanel: unknown }).currentPanel = undefined;
+    H.gitServicePaths = [];
+
+    H.activeEditorHandlers[0]({ document: { uri: {} } });
+
+    expect(H.gitServicePaths).toContain('/other-repo');
   });
 });
