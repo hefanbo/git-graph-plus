@@ -184,24 +184,25 @@ describe('activate', () => {
   });
 });
 
-describe('active-editor repo follow', () => {
-  async function activateWithGitApi() {
-    H.workspaceFolders = [{ uri: { fsPath: '/repo' } }];
-    H.gitApi = {
-      repositories: [],
-      onDidOpenRepository: () => ({ dispose() {} }),
-      getRepository: () => ({ rootUri: { fsPath: '/other-repo' } }),
-    };
-    const ctx = makeContext();
-    activate(ctx);
-    // The built-in git API is reached through a promise chain; let it settle
-    // so `onDidChangeActiveTextEditor` is registered.
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(H.activeEditorHandlers).toHaveLength(1);
-    return ctx;
-  }
+async function activateWithGitApi() {
+  H.workspaceFolders = [{ uri: { fsPath: '/repo' } }];
+  H.gitApi = {
+    repositories: [],
+    onDidOpenRepository: () => ({ dispose() {} }),
+    getRepository: () => ({ rootUri: { fsPath: '/other-repo' } }),
+  };
+  const ctx = makeContext();
+  activate(ctx);
+  // The built-in git API is reached through a promise chain; let it settle so
+  // `onDidChangeActiveTextEditor` is registered and repo discovery has pinned
+  // the default repo.
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(H.activeEditorHandlers).toHaveLength(1);
+  return ctx;
+}
 
-  it('does not retarget the graph while the Git Graph+ panel is open', async () => {
+describe('active-editor repo follow', () => {
+  it('follows the active editor for the sidebar without retargeting an open panel', async () => {
     await activateWithGitApi();
     const { MainPanel } = await import('../panels/MainPanel');
     const switchRepo = vi.fn();
@@ -210,8 +211,10 @@ describe('active-editor repo follow', () => {
 
     H.activeEditorHandlers[0]({ document: { uri: {} } });
 
+    // The panel keeps its selected repo...
     expect(switchRepo).not.toHaveBeenCalled();
-    expect(H.gitServicePaths).toEqual([]);
+    // ...while the sidebar/active repo still follows the editor.
+    expect(H.gitServicePaths).toContain('/other-repo');
     (MainPanel as unknown as { currentPanel: unknown }).currentPanel = undefined;
   });
 
@@ -224,5 +227,57 @@ describe('active-editor repo follow', () => {
     H.activeEditorHandlers[0]({ document: { uri: {} } });
 
     expect(H.gitServicePaths).toContain('/other-repo');
+  });
+});
+
+describe('open command repo selection', () => {
+  it('opens a fresh panel on the default repo, ignoring the followed active repo', async () => {
+    const ctx = await activateWithGitApi();
+    const { MainPanel } = await import('../panels/MainPanel');
+    (MainPanel as unknown as { currentPanel: unknown }).currentPanel = undefined;
+    vi.mocked(MainPanel.createOrShow).mockClear();
+
+    // Panel was closed and VS Code re-activated a file tab in another repo:
+    // the passive follow moves activeRepoPath away from the default.
+    H.gitServicePaths = [];
+    H.activeEditorHandlers[0]({ document: { uri: {} } });
+    expect(H.gitServicePaths).toContain('/other-repo');
+
+    H.gitServicePaths = [];
+    H.commandHandlers['gitGraphPlus.open']();
+
+    expect(MainPanel.createOrShow).toHaveBeenCalledWith(ctx.extensionUri, '/repo');
+    expect(H.gitServicePaths).toContain('/repo');
+  });
+
+  it('reveals an open panel without retargeting its repo', async () => {
+    const ctx = await activateWithGitApi();
+    const { MainPanel } = await import('../panels/MainPanel');
+    vi.mocked(MainPanel.createOrShow).mockClear();
+    const switchRepo = vi.fn();
+    (MainPanel as unknown as { currentPanel: unknown }).currentPanel = { switchRepo };
+    H.gitServicePaths = [];
+
+    H.activeEditorHandlers[0]({ document: { uri: {} } });
+    // Reset after the passive sidebar follow; the open command itself must not
+    // create a service or switch repos.
+    H.gitServicePaths = [];
+    H.commandHandlers['gitGraphPlus.open']();
+
+    expect(switchRepo).not.toHaveBeenCalled();
+    expect(H.gitServicePaths).toEqual([]);
+    expect(MainPanel.createOrShow).toHaveBeenCalledWith(ctx.extensionUri);
+    (MainPanel as unknown as { currentPanel: unknown }).currentPanel = undefined;
+  });
+
+  it('honors an explicit SCM repo on a fresh open', async () => {
+    const ctx = await activateWithGitApi();
+    const { MainPanel } = await import('../panels/MainPanel');
+    (MainPanel as unknown as { currentPanel: unknown }).currentPanel = undefined;
+    vi.mocked(MainPanel.createOrShow).mockClear();
+
+    H.commandHandlers['gitGraphPlus.open']({ rootUri: { fsPath: '/scm-repo' } });
+
+    expect(MainPanel.createOrShow).toHaveBeenCalledWith(ctx.extensionUri, '/scm-repo');
   });
 });

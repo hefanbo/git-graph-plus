@@ -77,6 +77,11 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   let activeRepoPath = workspaceFolder.uri.fsPath;
+  // Repo a freshly opened panel starts on: the workspace folder when it is
+  // itself a git repo, otherwise the first repo discovery finds. Kept separate
+  // from `activeRepoPath`, which passively follows the active editor while the
+  // panel is closed.
+  let defaultRepoPath = activeRepoPath;
 
   // Resolve the git executable so the extension works when git is not on PATH
   // (e.g. portable/MSYS2 installs configured via `git.path`). The configured
@@ -224,6 +229,9 @@ export function activate(context: vscode.ExtensionContext) {
       });
       fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
     }
+    // Pin the fresh-open default here: the root repo when the workspace folder
+    // is one, otherwise the first discovered repo.
+    defaultRepoPath = activeRepoPath;
   }).catch((err) => { logger.warn('Git Graph+: repo discovery failed:', err instanceof Error ? err.message : err); });
 
   // When workspace folders change (multi-root add/remove), re-discover repos
@@ -286,7 +294,18 @@ export function activate(context: vscode.ExtensionContext) {
     }, 300);
   }
 
-  function switchToRepo(newPath: string) {
+  /**
+   * Point the extension's "active repo" (sidebar views, status bar, palette
+   * commands) at `newPath`.
+   *
+   * `syncPanel` decides whether an open Git Graph+ panel follows. Passive
+   * follows — the active editor moving between repos — pass `false`: the
+   * panel's repo dropdown is authoritative while the panel is open, so
+   * switching editor tabs only moves the sidebar, never the graph. Explicit
+   * switches (the panel dropdown via onRepoChange, an SCM repo focus, opening
+   * from SCM) keep the default `true` so panel and sidebar stay in sync.
+   */
+  function switchToRepo(newPath: string, syncPanel = true) {
     if (samePath(newPath, activeRepoPath)) { return; }
     activeRepoPath = newPath;
     activeGitService = new GitService(newPath);
@@ -321,10 +340,12 @@ export function activate(context: vscode.ExtensionContext) {
     });
     fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
 
-    // If the webview panel is open, sync it to the new repo as well.
-    // MainPanel.switchRepo() will call onRepoChange → switchToRepo again,
-    // but the path.resolve guard above prevents an infinite loop.
-    MainPanel.currentPanel?.switchRepo(newPath);
+    // Sync the webview panel only for explicit switches. MainPanel.switchRepo()
+    // calls onRepoChange → switchToRepo again, but the path.resolve guard above
+    // prevents an infinite loop.
+    if (syncPanel) {
+      MainPanel.currentPanel?.switchRepo(newPath);
+    }
 
     refreshAll();
   }
@@ -378,31 +399,49 @@ export function activate(context: vscode.ExtensionContext) {
         context.subscriptions.push(
           vscode.window.onDidChangeActiveTextEditor(editor => {
             if (!editor) { return; }
-            // While the Git Graph+ panel is open, its repo dropdown is the
-            // source of truth. Switching editor tabs (typically to a file in
-            // the workspace root or another repo) must not silently retarget
-            // the graph — otherwise the sidebar and panel snap back to the
-            // workspace root every time the panel loses/regains focus. Passive
-            // follow resumes once the panel is closed; explicit switches (the
-            // panel dropdown, or opening Git Graph from SCM) call
-            // `switchToRepo` directly and still take effect.
-            if (MainPanel.currentPanel) { return; }
+            // The sidebar keeps following the active editor even while the
+            // Git Graph+ panel is open, but this passive follow must not
+            // retarget the panel: its repo dropdown is authoritative for the
+            // panel's lifetime, so tab switches only move the sidebar.
             const repo = gitApi.getRepository(editor.document.uri);
-            if (repo?.rootUri) { switchToRepo(repo.rootUri.fsPath); }
+            if (repo?.rootUri) { switchToRepo(repo.rootUri.fsPath, false); }
           })
         );
       } catch { /* git API unavailable */ }
     }).catch(() => {});
   }
 
+  /**
+   * Open or reveal the Git Graph+ panel.
+   *
+   * - Panel already open: reveal it as-is. Its repo dropdown is authoritative
+   *   for the panel's lifetime, so switching editor tabs never retargets it;
+   *   only an explicit SCM context may switch it.
+   * - Fresh open (no panel): always start on the default repo. `activeRepoPath`
+   *   is deliberately ignored here — it passively follows the active editor
+   *   while the panel is closed, and closing the panel makes VS Code re-activate
+   *   another tab, so reusing it would make the reopened panel depend on
+   *   whichever file tab happened to be behind it.
+   */
+  function openGitGraphPanel(sourceControl?: vscode.SourceControl): void {
+    if (MainPanel.currentPanel) {
+      if (sourceControl?.rootUri) { switchToRepo(sourceControl.rootUri.fsPath); }
+      MainPanel.createOrShow(context.extensionUri);
+      return;
+    }
+    const repoPath = sourceControl?.rootUri?.fsPath ?? defaultRepoPath;
+    // Sync the sidebar (and the `activeGitService` used by commands) to the
+    // repo the panel is about to show.
+    switchToRepo(repoPath);
+    MainPanel.createOrShow(context.extensionUri, repoPath);
+  }
+
   context.subscriptions.push(
     vscode.commands.registerCommand('git-graph-plus.open', (sourceControl?: vscode.SourceControl) => {
-      if (sourceControl?.rootUri) { switchToRepo(sourceControl.rootUri.fsPath); }
-      MainPanel.createOrShow(context.extensionUri, activeRepoPath);
+      openGitGraphPanel(sourceControl);
     }),
     vscode.commands.registerCommand('gitGraphPlus.open', (sourceControl?: vscode.SourceControl) => {
-      if (sourceControl?.rootUri) { switchToRepo(sourceControl.rootUri.fsPath); }
-      MainPanel.createOrShow(context.extensionUri, activeRepoPath);
+      openGitGraphPanel(sourceControl);
     }),
     vscode.commands.registerCommand('gitGraphPlus.refresh', () => {
       refreshAll();
