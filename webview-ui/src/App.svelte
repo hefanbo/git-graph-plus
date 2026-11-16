@@ -296,9 +296,8 @@ import AmendModal from './components/modals/AmendModal.svelte';
       if (uiStore.commitDetailFullscreen) {
         uiStore.commitDetailFullscreen = false;
       } else {
-        // selectCommit(null) clears the whole selection (incl. selectedCommitHashes
-        // and compare state) so the row highlight is fully removed.
-        uiStore.selectCommit(null);
+        // Hide the panel but keep the selection: ↑/↓ then resumes from the
+        // highlighted commit instead of restarting at the top of the graph.
         uiStore.showBottomPanel = false;
       }
     }

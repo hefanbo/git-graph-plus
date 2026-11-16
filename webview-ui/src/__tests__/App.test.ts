@@ -243,12 +243,13 @@ describe('App — keyboard shortcuts', () => {
     expect(types).toContain('getBranches');
   });
 
-  it('Escape clears commit selection when no modal is open and panel is visible', async () => {
+  it('Escape hides the details panel but keeps the commit selection', async () => {
     uiStore.selectedCommitHash = 'h1';
     uiStore.showBottomPanel = true;
     render(App);
     await fireEvent.keyDown(window, { key: 'Escape' });
-    expect(uiStore.selectedCommitHash).toBeNull();
+    // The highlighted commit is kept so ↑/↓ can continue from it.
+    expect(uiStore.selectedCommitHash).toBe('h1');
     expect(uiStore.showBottomPanel).toBe(false);
   });
 
@@ -266,15 +267,17 @@ describe('App — keyboard shortcuts', () => {
     expect(uiStore.selectedCommitHash).toBe('h1');
   });
 
-  it('Escape exits commit-detail fullscreen first, then clears selection on next Escape', async () => {
+  it('Escape exits commit-detail fullscreen first, then hides the panel on next Escape', async () => {
     uiStore.selectedCommitHash = 'h1';
     uiStore.commitDetailFullscreen = true;
     render(App);
     await fireEvent.keyDown(window, { key: 'Escape' });
     expect(uiStore.commitDetailFullscreen).toBe(false);
+    expect(uiStore.showBottomPanel).toBe(true);
     expect(uiStore.selectedCommitHash).toBe('h1');
     await fireEvent.keyDown(window, { key: 'Escape' });
-    expect(uiStore.selectedCommitHash).toBeNull();
+    expect(uiStore.showBottomPanel).toBe(false);
+    expect(uiStore.selectedCommitHash).toBe('h1');
   });
 
   it('Ctrl+F focuses the search input', async () => {

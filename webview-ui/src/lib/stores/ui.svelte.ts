@@ -56,12 +56,6 @@ class UiStore {
     }
   }
 
-  // Plain click: single selection with toggle-off when re-clicking the sole selection.
-  selectSingle(hash: string) {
-    const toggleOff = this.selectedCommitHash === hash && this.selectedCommitHashes.length === 1;
-    this.selectCommit(toggleOff ? null : hash);
-  }
-
   // Ctrl/Cmd-click: add or remove a hash from the multi-selection.
   toggleHash(hash: string) {
     this.comparing = false;

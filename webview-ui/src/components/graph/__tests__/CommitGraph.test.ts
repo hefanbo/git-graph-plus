@@ -49,6 +49,10 @@ beforeEach(() => {
   branchStore.branches = [];
   branchStore.worktrees = [];
   uiStore.selectedCommitHash = null;
+  uiStore.selectedCommitHashes = [];
+  uiStore.showBottomPanel = true;
+  uiStore.comparing = false;
+  uiStore.multiSelectArmed = false;
   uiStore.autoLoadMore = true;
   modalStore.closeAll();
 });
@@ -74,7 +78,7 @@ describe('CommitGraph smoke', () => {
     expect(container.querySelectorAll('.commit-row').length).toBe(3);
   });
 
-  it('clicking a commit row sets selectedCommitHash after the dbl-click timeout fires', async () => {
+  it('clicking a commit row selects it immediately', async () => {
     commitStore.setData(makeGraphData([
       makeCommit('h1', 'first'),
       makeCommit('h2', 'second', ['h1']),
@@ -83,13 +87,10 @@ describe('CommitGraph smoke', () => {
     await tick();
     const rows = container.querySelectorAll<HTMLElement>('.commit-row');
     expect(rows.length).toBeGreaterThan(0);
-    // The dual-click discriminator waits 200ms before treating a click as
-    // a single-click. Use fake timers if you want to exercise the delay,
-    // but we just need to confirm clicking does not throw.
+    // There is no double-click action to disambiguate anymore, so no 150ms
+    // delay before selection.
     await fireEvent.click(rows[0]);
-    // Selection is deferred until the dbl-click timer expires; do a soft
-    // assertion that the row is at least focusable / clickable.
-    expect(rows[0]).toBeTruthy();
+    expect(uiStore.selectedCommitHash).toBe('h1');
   });
 
   it('clicking the UNCOMMITTED row opens the SCM view instead of selecting it', async () => {
@@ -522,6 +523,129 @@ describe('CommitGraph — remote branch badges', () => {
     expect(container.querySelector('.badge-cloud-only')).toBeFalsy();
     const badgeTexts = Array.from(container.querySelectorAll('.ref-badge')).map(el => (el.textContent ?? '').trim());
     expect(badgeTexts.some(t => t.includes('origin/feature-x'))).toBe(true);
+  });
+});
+
+describe('CommitGraph — keyboard actions', () => {
+  it('first arrow navigation selects the top commit without opening the details panel', async () => {
+    commitStore.setData(makeGraphData([
+      makeCommit('h1', 'first'),
+      makeCommit('h2', 'second', ['h1']),
+    ]));
+    uiStore.selectedCommitHash = null;
+    // The flag defaults to true, but no panel is on screen until a commit is
+    // selected — browsing must not make it appear.
+    uiStore.showBottomPanel = true;
+    render(CommitGraph, {});
+    await tick();
+
+    await fireEvent.keyDown(window, { key: 'ArrowDown' });
+
+    expect(uiStore.selectedCommitHash).toBe('h1');
+    expect(uiStore.showBottomPanel).toBe(false);
+  });
+
+  it('Enter on the already-selected row opens the details panel (no toggle-off)', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const row = container.querySelector<HTMLElement>('.commit-row')!;
+    await fireEvent.click(row);
+    uiStore.showBottomPanel = false; // user closed it
+
+    await fireEvent.keyDown(row, { key: 'Enter' });
+
+    expect(uiStore.selectedCommitHash).toBe('h1');
+    expect(uiStore.showBottomPanel).toBe(true);
+  });
+
+  it('arrow navigation moves selection and focus without opening a closed details panel', async () => {
+    commitStore.setData(makeGraphData([
+      makeCommit('h1', 'first'),
+      makeCommit('h2', 'second', ['h1']),
+    ]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const rows = container.querySelectorAll<HTMLElement>('.commit-row');
+    await fireEvent.click(rows[0]);   // select h1 (a click opens the panel)
+    uiStore.showBottomPanel = false;  // user hid it
+
+    await fireEvent.keyDown(window, { key: 'ArrowDown' });
+
+    expect(uiStore.selectedCommitHash).toBe('h2');
+    expect(uiStore.showBottomPanel).toBe(false);
+    // Focus follows the selection so Enter can reopen the details for it.
+    await waitFor(() => {
+      expect(document.activeElement?.getAttribute('data-hash')).toBe('h2');
+    });
+  });
+
+  it('arrow navigation keeps an open details panel open', async () => {
+    commitStore.setData(makeGraphData([
+      makeCommit('h1', 'first'),
+      makeCommit('h2', 'second', ['h1']),
+    ]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    await fireEvent.click(container.querySelectorAll<HTMLElement>('.commit-row')[0]);
+    uiStore.showBottomPanel = true;
+
+    await fireEvent.keyDown(window, { key: 'ArrowDown' });
+
+    expect(uiStore.selectedCommitHash).toBe('h2');
+    expect(uiStore.showBottomPanel).toBe(true);
+  });
+
+  it('Enter selects the focused row, equivalent to a single click', async () => {
+    commitStore.setData(makeGraphData([
+      makeCommit('h1', 'first'),
+      makeCommit('h2', 'second', ['h1']),
+    ]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    const rows = container.querySelectorAll<HTMLElement>('.commit-row');
+
+    await fireEvent.keyDown(rows[1], { key: 'Enter' });
+    expect(uiStore.selectedCommitHash).toBe('h2');
+    expect(uiStore.showBottomPanel).toBe(true);
+  });
+
+  it('Enter on the UNCOMMITTED row opens SCM, like clicking it', async () => {
+    commitStore.setData(makeGraphData([
+      makeCommit('UNCOMMITTED', 'Uncommitted changes'),
+      makeCommit('h1', 'first'),
+    ]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+
+    await fireEvent.keyDown(container.querySelector<HTMLElement>('.commit-row')!, { key: 'Enter' });
+
+    expect(globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'openScmView')).toBe(true);
+    expect(uiStore.selectedCommitHash).toBeNull();
+  });
+});
+
+describe('CommitGraph — no double-click actions', () => {
+  it('double-clicking a row or badge does not checkout', async () => {
+    const c = makeCommit('h1', 'work');
+    c.refs = [
+      { type: 'branch', name: 'feature-x' },
+      { type: 'remote-branch', name: 'feature-x', remote: 'origin' },
+    ];
+    commitStore.setData(makeGraphData([c]));
+    branchStore.branches = [
+      { name: 'feature-x', current: true, upstream: 'origin/feature-x', ahead: 0, behind: 0, hash: 'h1' },
+    ];
+    const { container } = render(CommitGraph, {});
+    await tick();
+    globalThis.__postedMessages = [];
+
+    await fireEvent.doubleClick(container.querySelector<HTMLElement>('.commit-row')!);
+    await fireEvent.doubleClick(container.querySelector<HTMLElement>('.ref-badge')!);
+    await tick();
+
+    expect(globalThis.__postedMessages.some(m => (m.data as { type?: string }).type === 'checkout')).toBe(false);
   });
 });
 

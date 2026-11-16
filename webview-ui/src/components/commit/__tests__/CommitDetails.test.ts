@@ -270,13 +270,14 @@ describe('CommitDetails — header actions', () => {
     expect(uiStore.commitDetailFullscreen).toBe(true);
   });
 
-  it('close button clears the selected commit and hides the panel', async () => {
+  it('close button hides the panel but keeps the selected commit', async () => {
     uiStore.selectedCommitHash = 'h1';
     uiStore.showBottomPanel = true;
     const { container } = render(CommitDetails, { commit: commit({ hash: 'h1' }) });
     const btns = container.querySelectorAll<HTMLButtonElement>('.tab-action-btn');
     await fireEvent.click(btns[btns.length - 1]);
-    expect(uiStore.selectedCommitHash).toBeNull();
+    // Keeping the selection lets ↑/↓ resume from the highlighted commit.
+    expect(uiStore.selectedCommitHash).toBe('h1');
     expect(uiStore.showBottomPanel).toBe(false);
   });
 });

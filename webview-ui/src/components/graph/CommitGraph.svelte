@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { commitStore } from '../../lib/stores/commits.svelte';
   import { branchStore } from '../../lib/stores/branches.svelte';
   import { uiStore } from '../../lib/stores/ui.svelte';
@@ -212,7 +212,6 @@
       bisectStartGood = null;
     }
   });
-  let clickTimer: ReturnType<typeof setTimeout> | null = null;
   let interactiveRebaseBase = $state<string | null>(null);
   // Mirror the locally-rendered interactive rebase overlay into modalStore so
   // anyOpen sees it — otherwise the graph's ↑/↓ nav keeps scrolling underneath.
@@ -622,8 +621,8 @@
     }
   }
 
-  // Row click / double-click behaviour, shared by the commit rows and the pinned
-  // meta overlay so clicking the author/date area behaves the same as the row.
+  // Row click behaviour, shared by the commit rows and the pinned meta overlay
+  // so clicking the author/date area behaves the same as the row.
   function handleRowClick(commit: typeof displayCommits[0], e?: MouseEvent) {
     if (bisectBadCommit && bisectBadCommit !== commit.hash) {
       const bad = bisectBadCommit;
@@ -636,7 +635,6 @@
     // The uncommitted-changes row opens VS Code's Source Control view
     // (where the user stages/commits) instead of the in-graph detail panel.
     if (commit.hash === 'UNCOMMITTED') {
-      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
       uiStore.selectedCommitHash = null;
       vscode.postMessage({ type: 'openScmView' });
       return;
@@ -644,26 +642,25 @@
 
     // In multi-select mode, only modifier clicks change the set. Shift extends
     // the range, Ctrl/Cmd toggles membership. A plain click falls through to the
-    // debounced single-select below, which exits the mode and selects just this row.
+    // immediate single-select below, which exits the mode and selects just this row.
     if (uiStore.multiSelectArmed && e && e.shiftKey) {
-      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
       uiStore.selectRange(commit.hash, displayCommits.map(c => c.hash));
       return;
     }
     if (uiStore.multiSelectArmed && e && (e.ctrlKey || e.metaKey)) {
-      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
       uiStore.toggleHash(commit.hash);
       return;
     }
     // Not armed: Ctrl/Cmd or Shift click promotes to multi-select directly.
     if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) {
-      if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
       uiStore.modifierSelect(commit.hash, { range: e.shiftKey, orderedHashes: displayCommits.map(c => c.hash), fallbackAnchor: commitStore.headHash });
       return;
     }
-    // Plain click single-selects (debounced).
-    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; return; }
-    clickTimer = setTimeout(() => { clickTimer = null; selectCommit(commit.hash); }, 150);
+    // No double-click action exists to disambiguate, so select immediately.
+    // Re-clicking/re-Entering the selected row keeps it selected and reveals
+    // the details panel (there is no toggle-off to hide the selection).
+    navPath = [];
+    uiStore.selectCommit(commit.hash);
   }
 
   // Derive the hovered row from the pointer's Y position over the whole scroll
@@ -674,32 +671,6 @@
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const idx = Math.floor((e.clientY - rect.top) / ROW_HEIGHT);
     hoveredHash = idx >= 0 && idx < displayCommits.length ? displayCommits[idx].hash : null;
-  }
-
-  function handleRowDblClick(commit: typeof displayCommits[0]) {
-    if (commit.hash === 'UNCOMMITTED') return;
-    // In selection / compare mode a double-click is just two membership toggles —
-    // never a checkout.
-    if (uiStore.multiSelectArmed || uiStore.comparing) return;
-    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-    const localRefs = commit.refs.filter(r => r.type === 'head' || r.type === 'branch');
-    if (localRefs.length === 1) {
-      doCheckout(localRefs[0].name);
-    } else if (localRefs.length > 1) {
-      openCheckoutCommitModal(commit.hash);
-    } else {
-      const remoteRef = commit.refs.find(r => r.type === 'remote-branch' && r.name !== 'HEAD');
-      if (remoteRef) {
-        doCheckoutRemote(`${remoteRef.remote}/${remoteRef.name}`, remoteRef.name);
-      } else {
-        openCheckoutCommitModal(commit.hash);
-      }
-    }
-  }
-
-  function selectCommit(hash: string) {
-    navPath = [];
-    uiStore.selectSingle(hash);
   }
 
   function onBranchDrop(e: DragEvent, targetBranch: string) {
@@ -795,8 +766,7 @@
     };
   });
 
-  function onCommitContextMenu(e: MouseEvent, commit: Commit) {
-    e.preventDefault();
+  function openCommitContextMenu(x: number, y: number, commit: Commit) {
     contextMenuHash = commit.hash;
     // git reports non-branch HEAD states as parenthesized pseudo-labels
     // ("(no branch, rebasing main)", "(HEAD detached at …)"); none are real
@@ -867,7 +837,7 @@
         action: () => { uiStore.exitMultiSelect(); },
       });
 
-      contextMenu = { x: e.clientX, y: e.clientY, items: multiItems };
+      contextMenu = { x, y, items: multiItems };
       return;
     }
 
@@ -1256,13 +1226,12 @@
       items.push(...groups[i]);
     }
 
-    contextMenu = { x: e.clientX, y: e.clientY, items };
+    contextMenu = { x, y, items };
   }
 
   // Context menu for the uncommitted-changes row: stash the changes, and amend
   // the last commit when there is one.
-  function onUncommittedContextMenu(e: MouseEvent) {
-    e.preventDefault();
+  function openUncommittedContextMenu(x: number, y: number) {
     const items: any[] = [];
 
     // Stash is always available: the row only renders when there are uncommitted
@@ -1292,7 +1261,7 @@
       });
     }
 
-    contextMenu = { x: e.clientX, y: e.clientY, items };
+    contextMenu = { x, y, items };
   }
 
   function formatDate(dateStr: string): string {
@@ -1363,6 +1332,10 @@
     const el = document.activeElement as HTMLElement | null;
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' ||
                el.tagName === 'SELECT' || el.isContentEditable)) return;
+    // Only navigate when focus is in the graph (or nothing is focused), so ↑/↓
+    // keep their native behaviour in toolbars and the details panel.
+    if (el && el !== document.body && !container?.contains(el)) return;
+    if (el?.closest('button, a, [role="button"]')) return;
 
     const navCommits = displayCommits.filter(c => c.hash !== 'UNCOMMITTED');
     const dir = e.key === 'ArrowDown' ? 'down' : 'up';
@@ -1371,20 +1344,33 @@
     if (e.ctrlKey || e.metaKey) {
       const result = computeJumpTarget(navCommits, uiStore.selectedCommitHash, dir, navPath);
       navPath = result.path;
-      if (result.target) {
-        uiStore.selectSingle(result.target);
-        scrollHashIntoView(result.target, 'edge');
-      }
+      if (result.target) { moveSelection(result.target); }
       return;
     }
 
     // Plain step abandons the jump exploration path.
     navPath = [];
     const target = computeNavigationTarget(navCommits, uiStore.selectedCommitHash, dir, false);
-    if (target) {
-      uiStore.selectSingle(target);
-      scrollHashIntoView(target, 'edge');
-    }
+    if (target) { moveSelection(target); }
+  }
+
+  /**
+   * Move the selection and the DOM focus together for keyboard navigation.
+   * Arrow keys only browse: they must not force the details panel open (Enter
+   * or a click does that), but if the panel is already open they keep it open
+   * and let it follow the new selection.
+   */
+  function moveSelection(hash: string) {
+    // The raw flag can be true while no panel is on screen (nothing selected).
+    // Only keep the panel open if it was actually visible before navigating.
+    const panelWasVisible = uiStore.showBottomPanel && !!(uiStore.selectedCommitHash || uiStore.comparing);
+    uiStore.selectCommit(hash);
+    uiStore.showBottomPanel = panelWasVisible;
+    scrollHashIntoView(hash, 'edge');
+    // Rows are virtualized: wait for the scroll-induced render before focusing.
+    void tick().then(() => {
+      container?.querySelector<HTMLElement>(`.commit-row[data-hash="${hash}"]`)?.focus({ preventScroll: true });
+    });
   }
 
 </script>
@@ -1550,20 +1536,16 @@
             class:bisect-culprit={bisectCulpritHash !== null && commit.hash.startsWith(bisectCulpritHash)}
             style="height: {ROW_HEIGHT}px;"
             onclick={(e) => handleRowClick(commit, e)}
-            ondblclick={() => handleRowDblClick(commit)}
-            oncontextmenu={(e) => { if (commit.hash === 'UNCOMMITTED') onUncommittedContextMenu(e); else onCommitContextMenu(e, commit); }}
+            oncontextmenu={(e) => {
+              e.preventDefault();
+              if (commit.hash === 'UNCOMMITTED') openUncommittedContextMenu(e.clientX, e.clientY);
+              else openCommitContextMenu(e.clientX, e.clientY, commit);
+            }}
             use:tooltip={commit.hash === 'UNCOMMITTED' ? t('graph.clickToOpenScm') : (commit.grafted ? t('graph.grafted') : '')}
             role="row"
             tabindex={0}
-            onkeydown={(e) => {
-              if (e.key !== 'Enter') return;
-              if (commit.hash === 'UNCOMMITTED') {
-                uiStore.selectedCommitHash = null;
-                vscode.postMessage({ type: 'openScmView' });
-              } else {
-                selectCommit(commit.hash);
-              }
-            }}
+            data-hash={commit.hash}
+            onkeydown={(e) => { if (e.key === 'Enter') handleRowClick(commit); }}
           >
             <div class="col-message" style="padding-left: {(displayLeftMargin[index] ?? 0) * X_SCALE + 4}px;">
               {#if currentBranchLocalOnly.has(commit.hash)}
@@ -1614,21 +1596,13 @@
                       class:badge-head={ref.type === 'head'}
                       class:badge-fixed={isWtBranch}
                       use:tooltip={trackedUpstream ?? ''}
-                      ondblclick={(e) => {
-                        e.stopPropagation();
-                        doCheckout(ref.name);
-                      }}
-                      role="button"
-                      tabindex={0}
-                      onkeydown={(e) => {
-                        if (e.key === 'Enter') {
-                          doCheckout(ref.name);
-                        }
-                      }}
                     >
                       <i class="codicon codicon-cloud ref-icon"></i>
                     </span>
                   {/if}
+                  <!-- Drag-to-rebase/merge is a pointer-only affordance on branch
+                       badges; the badge itself has no click/keyboard action. -->
+                  <!-- svelte-ignore a11y_no_static_element_interactions -->
                   <span
                     class="ref-badge"
                     style="--badge-color: {badgeColor};{ref.type === 'stash' ? ' --fixed-tint: 28%;' : ''}"
@@ -1651,30 +1625,6 @@
                     ondragleave={() => { if (dragOverBranch === ref.name) dragOverBranch = null; }}
                     ondrop={(e) => { if (ref.type === 'branch' || ref.type === 'head') onBranchDrop(e, ref.name); }}
                     ondragend={() => { dragSourceBranch = null; dragOverBranch = null; }}
-                    use:tooltip={t('graph.dblClickCheckout', { ref: ref.type === 'remote-branch' ? ref.remote + '/' + ref.name : ref.name })}
-                    ondblclick={(e) => {
-                      e.stopPropagation();
-                      if (ref.type === 'remote-branch') {
-                        doCheckoutRemote(`${ref.remote}/${ref.name}`, ref.name);
-                      } else if (ref.type === 'tag' || ref.type === 'stash') {
-                        openCheckoutCommitModal(ref.type === 'stash' ? commit.hash : ref.name);
-                      } else {
-                        doCheckout(ref.name);
-                      }
-                    }}
-                    role="button"
-                    tabindex={0}
-                    onkeydown={(e) => {
-                      if (e.key === 'Enter') {
-                        if (ref.type === 'remote-branch') {
-                          doCheckoutRemote(`${ref.remote}/${ref.name}`, ref.name);
-                        } else if (ref.type === 'tag' || ref.type === 'stash') {
-                          openCheckoutCommitModal(ref.type === 'stash' ? commit.hash : ref.name);
-                        } else {
-                          doCheckout(ref.name);
-                        }
-                      }
-                    }}
                   >
                     {#if ref.type === 'head'}
                       <i class="codicon codicon-check ref-icon"></i>
@@ -1741,10 +1691,13 @@
               style="top: {index * ROW_HEIGHT}px; height: {ROW_HEIGHT}px;"
               role="row"
               tabindex={-1}
-              onclick={(e) => handleRowClick(commit, e)}
-              ondblclick={() => handleRowDblClick(commit)}
-              oncontextmenu={(e) => { if (commit.hash === 'UNCOMMITTED') onUncommittedContextMenu(e); else onCommitContextMenu(e, commit); }}
               onkeydown={(e) => { if (e.key === 'Enter') handleRowClick(commit); }}
+              onclick={(e) => handleRowClick(commit, e)}
+              oncontextmenu={(e) => {
+                e.preventDefault();
+                if (commit.hash === 'UNCOMMITTED') openUncommittedContextMenu(e.clientX, e.clientY);
+                else openCommitContextMenu(e.clientX, e.clientY, commit);
+              }}
             >
               {@render metaCells(commit)}
             </div>
@@ -2119,8 +2072,12 @@
     outline: 1px solid var(--vscode-focusBorder, #007fd4);
     outline-offset: -1px;
   }
-  /* No focus ring on click/keyboard focus (selection is shown by the row background). */
-  .commit-row:focus-visible { outline: none; }
+  /* Keyboard focus ring: Enter opens the row's context menu, so the user must
+     be able to see which row the key will act on. */
+  .commit-row:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder, #007fd4);
+    outline-offset: -1px;
+  }
 
   .commit-row:not(.other-branch) .commit-subject {
     font-weight: normal;
@@ -2419,10 +2376,6 @@
     width: var(--badge-bar-width, 4px);
     background: var(--badge-color);
   }
-
-  /* No focus ring on click/keyboard focus. Otherwise clicking a badge and then
-     pressing Esc flips it into :focus-visible, drawing an unwanted outline. */
-  .ref-badge:focus-visible { outline: none; }
 
   /* Fixed-color refs: tag/worktree 20%, stash 28% (via inline --fixed-tint). */
   .ref-badge.badge-fixed {

@@ -145,7 +145,6 @@ export const en: Record<string, string> = {
   'amend.pushAfter': 'Push the branch after amending',
   'amend.pushAfterWarning': 'Amending rewrites the commit, so this force-pushes and <span class="modal-emph modal-emph--danger">overwrites the remote branch</span>. --force-with-lease aborts if the remote has commits you haven\'t fetched.',
   'amend.amend': 'Amend',
-  'graph.dblClickCheckout': 'Double-click to checkout: {ref}',
 
   // Graph context menu
   'graph.checkoutHash': 'Checkout {hash}',
