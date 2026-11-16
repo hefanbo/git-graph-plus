@@ -80,11 +80,14 @@
     bisectActive?: boolean;
     bisectCulpritHash?: string | null;
     remoteFilter?: string[];
+    branchFilter?: string[];
+    includeReflog?: boolean;
+    simplifyByDecoration?: boolean;
     headJumpNonce?: number;
     onHeadOffscreenChange?: (offscreen: boolean) => void;
   }
 
-  let { searchMatchedHashes = null, searchNavigateHash = null, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
+  let { searchMatchedHashes = null, searchNavigateHash = null, bisectActive = false, bisectCulpritHash = null, remoteFilter = [], branchFilter = [], includeReflog = false, simplifyByDecoration = false, headJumpNonce = 0, onHeadOffscreenChange = () => {} }: Props = $props();
 
   const vscode = getVsCodeApi();
 
@@ -577,9 +580,18 @@
   }
 
   // Shared by the "Load more commits" button and the scroll-triggered auto-load.
+  // The request must repeat the active scope (branches / remotes / reflog /
+  // simplify) from the last getLog: MainPanel applies these per request, so
+  // omitting them would silently reset the filters and drop reflog-only rows.
   function loadMoreCommits() {
     commitStore.setLoadingMore(true);
-    vscode.postMessage({ type: 'getLog', payload: { limit: commitStore.currentLimit + uiStore.loadMoreCount } });
+    vscode.postMessage({ type: 'getLog', payload: {
+      limit: commitStore.currentLimit + uiStore.loadMoreCount,
+      branches: branchFilter.length > 0 ? [...branchFilter] : undefined,
+      remoteFilter: remoteFilter.length > 0 ? [...remoteFilter] : undefined,
+      includeReflog,
+      simplifyByDecoration,
+    }});
   }
 
   // In horizontal-scroll mode, keep the message start (the graph's right edge) of the

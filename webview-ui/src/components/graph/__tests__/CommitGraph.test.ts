@@ -559,6 +559,34 @@ describe('CommitGraph — auto-load on scroll', () => {
     expect((getLogPosts()[0].data as { payload: { limit: number } }).payload.limit).toBe(100);
   });
 
+  it('carries the active scope into the load-more request', async () => {
+    commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
+    commitStore.hasMore = true;
+    commitStore.currentLimit = 50;
+    uiStore.loadMoreCount = 50;
+    const { container } = render(CommitGraph, {
+      remoteFilter: ['origin'],
+      branchFilter: ['main'],
+      includeReflog: true,
+      simplifyByDecoration: true,
+    });
+    await tick();
+    globalThis.__postedMessages = [];
+
+    driveScrollToBottom(container.querySelector<HTMLElement>('.commit-graph')!);
+    await fireEvent.scroll(container.querySelector<HTMLElement>('.commit-graph')!);
+    await waitFor(() => {
+      expect(getLogPosts().length).toBe(1);
+    });
+    expect((getLogPosts()[0].data as { payload: unknown }).payload).toEqual({
+      limit: 100,
+      branches: ['main'],
+      remoteFilter: ['origin'],
+      includeReflog: true,
+      simplifyByDecoration: true,
+    });
+  });
+
   it('does not auto-load when scrolled well above the bottom', async () => {
     commitStore.setData(makeGraphData([makeCommit('h1', 'first')]));
     commitStore.hasMore = true;
