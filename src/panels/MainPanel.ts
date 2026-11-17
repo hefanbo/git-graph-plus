@@ -53,6 +53,11 @@ export class MainPanel {
   private isFirstGetLog = true;
   private logSequence = 0;
   private searchSequence = 0;
+  // Reflog and Stats are loaded on mount (and on repo switch). A response for
+  // the previous repo can resolve after the new repo's request, so drop any
+  // result that is no longer the latest request.
+  private reflogSequence = 0;
+  private statsSequence = 0;
   // Two independent guards: selecting a commit (loads its file list) and
   // selecting a file (loads that file's diff) are different axes, so a file
   // request must not invalidate a pending commit-files request and vice versa.
@@ -370,6 +375,11 @@ export class MainPanel {
     this.fileWatcher = new FileWatcher(newPath, (what) => this.onRepoChanged(what));
     this.fileWatcher.enabled = vscode.workspace.getConfiguration('gitGraphPlus').get<boolean>('autoRefresh', true);
     this.disposables.push(this.fileWatcher);
+
+    // The graph reloads via the refreshAll() that every caller performs, but
+    // Reflog/Stats only load on mount. Tell them the repo changed so they
+    // don't keep showing the previous repo's data.
+    this.post({ type: 'repoSwitched' });
 
     MainPanel.onRepoChange?.(newPath);
   }
@@ -1279,7 +1289,9 @@ export class MainPanel {
           break;
         }
         case 'getReflog': {
+          const seq = ++this.reflogSequence;
           const result = await this.gitService.getReflog(message.payload?.limit ?? 200, message.payload?.ref ?? 'HEAD');
+          if (seq !== this.reflogSequence) break;
           this.post({ type: 'reflogData', payload: result });
           break;
         }
@@ -1323,10 +1335,12 @@ export class MainPanel {
         }
         // --- Statistics ---
         case 'getStats': {
+          const seq = ++this.statsSequence;
           const [byAuthor, byWeekdayHour] = await Promise.all([
             this.gitService.statsCommitsByAuthor(),
             this.gitService.statsCommitsByWeekdayHour(),
           ]);
+          if (seq !== this.statsSequence) break;
           this.post({
             type: 'statsData',
             payload: { byAuthor, byWeekdayHour },

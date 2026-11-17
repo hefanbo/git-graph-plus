@@ -187,6 +187,16 @@
         hasMore = msg.payload.hasMore;
         loading = false;
         loadingMore = false;
+      } else if (msg.type === 'repoSwitched') {
+        // The previous repo's entries are meaningless here and its selected
+        // branch may not exist in the new repo, so start over from HEAD.
+        selectedRef = 'HEAD';
+        currentLimit = 200;
+        entries = [];
+        hasMore = false;
+        loading = true;
+        loadingMore = false;
+        if (active) load();
       } else if (msg.type === 'repoChanged' || msg.type === 'operationComplete') {
         if (active) load();
       }

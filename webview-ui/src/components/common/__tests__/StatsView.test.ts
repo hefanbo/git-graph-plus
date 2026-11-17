@@ -23,6 +23,23 @@ describe('StatsView', () => {
     expect(req).toBeDefined();
   });
 
+  it('re-requests stats after a repo switch and hides the old data', async () => {
+    const { container } = render(StatsView);
+    deliverStats([{ author: 'OldRepo', email: 'old@x.com', count: 3 }]);
+    await waitFor(() => container.querySelectorAll('.author-row').length === 1);
+
+    globalThis.__postedMessages = [];
+    window.dispatchEvent(new MessageEvent('message', { data: { type: 'repoSwitched' } }));
+
+    await waitFor(() => {
+      expect(globalThis.__postedMessages.some(
+        (m) => (m.data as { type?: string }).type === 'getStats'
+      )).toBe(true);
+    });
+    expect(container.querySelectorAll('.author-row').length).toBe(0);
+    expect(container.querySelector('.loading')).not.toBeNull();
+  });
+
   it('shows spinner before data arrives', () => {
     const { container } = render(StatsView);
     expect(container.querySelector('.loading')).not.toBeNull();

@@ -137,6 +137,37 @@ describe('Reflog — loading & data flow', () => {
       )).toBe(true);
     });
   });
+
+  it('repoSwitched resets a non-HEAD ref filter and re-requests HEAD', async () => {
+    branchStore.branches = [
+      { name: 'main', current: true, remote: undefined, upstream: undefined, ahead: 0, behind: 0, hash: 'h1' },
+      { name: 'feat', current: false, remote: undefined, upstream: undefined, ahead: 0, behind: 0, hash: 'h2' },
+    ];
+    const { container } = render(Reflog, { active: true });
+    deliverReflog([entry()]);
+
+    // Pick 'feat' so the component is not already on HEAD.
+    await fireEvent.click(container.querySelectorAll<HTMLButtonElement>('.filter-btn')[0]);
+    const featItem = Array.from(container.querySelectorAll<HTMLButtonElement>('.dropdown .dd-item'))
+      .find(b => b.textContent?.includes('feat'))!;
+    await fireEvent.click(featItem);
+    deliverReflog([entry()]);
+    await waitFor(() => expect(container.querySelectorAll('.reflog-row').length).toBe(1));
+    globalThis.__postedMessages = [];
+
+    window.dispatchEvent(new MessageEvent('message', { data: { type: 'repoSwitched' } }));
+    await waitFor(() => {
+      const req = globalThis.__postedMessages.find(
+        (m) => (m.data as { type?: string }).type === 'getReflog'
+      );
+      expect(req).toBeDefined();
+      const payload = (req!.data as { payload: { ref: string; limit: number } }).payload;
+      expect(payload.ref).toBe('HEAD');
+      expect(payload.limit).toBe(200);
+    });
+    // Old repo's entries are cleared while the new repo loads.
+    expect(container.querySelectorAll('.reflog-row').length).toBe(0);
+  });
 });
 
 describe('Reflog — search and filter', () => {

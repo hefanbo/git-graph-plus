@@ -170,6 +170,11 @@ export type ExtensionMessage =
   | { type: 'setGraphColors'; payload: { colors: string[] } }
   | { type: 'setCommitLinkRules'; payload: { rules: LinkRule[] } }
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }
+  // Emitted by MainPanel.swapRepo() after `repoPath` / GitService point at a
+  // different repo. Views that load their data on mount only (Reflog, Stats)
+  // must use this to reload — `repoList` alone doesn't tell them a switch
+  // actually happened (it's also sent for plain refreshes).
+  | { type: 'repoSwitched' }
   | { type: 'worktreeData'; payload: WorktreeInfo[] }
   | { type: 'uncommittedDiffData'; payload: { staged: Array<{ path: string; status: string }>; unstaged: Array<{ path: string; status: string }> } }
   | { type: 'multiCommitSectionsData'; payload: { files: Array<{ path: string; status: string }>; sections: Array<{ file: string; commit: string; diff: DiffData }> } }

@@ -16,16 +16,27 @@
   let loading = $state(true);
   let maxHeatCount = $derived(Math.max(1, ...byWeekdayHour.map(s => s.count)));
 
+  function request() {
+    vscode.postMessage({ type: 'getStats' });
+  }
+
   onMount(() => {
     function handleMessage(event: MessageEvent) {
       if (event.data.type === 'statsData') {
         byAuthor = event.data.payload.byAuthor;
         byWeekdayHour = event.data.payload.byWeekdayHour;
         loading = false;
+      } else if (event.data.type === 'repoSwitched') {
+        // Stats only load on mount; without this the view keeps showing the
+        // previous repo's contributors/heatmap after the repo is switched.
+        byAuthor = [];
+        byWeekdayHour = [];
+        loading = true;
+        request();
       }
     }
     window.addEventListener('message', handleMessage);
-    vscode.postMessage({ type: 'getStats' });
+    request();
     return () => window.removeEventListener('message', handleMessage);
   });
 
