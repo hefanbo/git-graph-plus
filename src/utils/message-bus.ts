@@ -167,6 +167,7 @@ export type ExtensionMessage =
   | { type: 'setAutoLoadMore'; payload: { enabled: boolean } }
   | { type: 'setSimplifyByDecoration'; payload: { enabled: boolean } }
   | { type: 'setBadgeBarThickness'; payload: { width: number } }
+  | { type: 'setBranchBadgeLocalLabel'; payload: { label: string } }
   | { type: 'setGraphColors'; payload: { colors: string[] } }
   | { type: 'setCommitLinkRules'; payload: { rules: LinkRule[] } }
   | { type: 'repoList'; payload: { repos: Array<{ path: string; name: string; type: 'root' | 'submodule' | 'nested' }>; active: string } }

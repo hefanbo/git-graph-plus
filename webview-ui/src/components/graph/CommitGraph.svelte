@@ -1603,7 +1603,7 @@
                       <span class="badge-source"><i class="codicon codicon-cloud ref-icon"></i>{remote}</span>
                     {/each}
                     {#if group.hasLocal && !group.isDetachedHead}
-                      <span class="badge-source"><i class="codicon codicon-folder ref-icon"></i></span>
+                      <span class="badge-source"><i class="codicon codicon-folder ref-icon"></i>{uiStore.branchBadgeLocalLabel}</span>
                     {/if}
                     <!-- Bar between the sources and the branch name. -->
                     <span class="badge-divider" aria-hidden="true"></span>

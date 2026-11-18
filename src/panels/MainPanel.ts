@@ -161,6 +161,15 @@ export class MainPanel {
     return level === 'thick' ? 8 : level === 'medium' ? 6 : 4;
   }
 
+  // Text shown after the badge's local-source folder icon, trimmed; empty by
+  // default so the icon renders alone.
+  private readBranchBadgeLocalLabel(): string {
+    const raw = vscode.workspace
+      .getConfiguration('gitGraphPlus')
+      .get<string>('branchBadgeLocalLabel', '');
+    return typeof raw === 'string' ? raw.trim() : '';
+  }
+
   private makeBranchColorResolver(): (name: string) => string | undefined {
     const raw = vscode.workspace.getConfiguration('gitGraphPlus').get('branchColors');
     return makeBranchColorResolver(compileBranchColorRules(raw));
@@ -232,6 +241,9 @@ export class MainPanel {
         if (e.affectsConfiguration('gitGraphPlus.branchBadgeBarThickness')) {
           this.post({ type: 'setBadgeBarThickness', payload: { width: this.readBadgeBarWidth() } });
         }
+        if (e.affectsConfiguration('gitGraphPlus.branchBadgeLocalLabel')) {
+          this.post({ type: 'setBranchBadgeLocalLabel', payload: { label: this.readBranchBadgeLocalLabel() } });
+        }
         if (e.affectsConfiguration('gitGraphPlus.loadMoreCommitCount')) {
           this.post({ type: 'setLoadMoreCount', payload: { count: readLoadMoreCommitCount() } });
         }
@@ -265,6 +277,7 @@ export class MainPanel {
     this.post({ type: 'setLocale', payload: { locale, homeDir } });
     this.post({ type: 'setDefaults', payload: this.readModalDefaults() });
     this.post({ type: 'setBadgeBarThickness', payload: { width: this.readBadgeBarWidth() } });
+    this.post({ type: 'setBranchBadgeLocalLabel', payload: { label: this.readBranchBadgeLocalLabel() } });
     this.post({ type: 'setGraphColors', payload: { colors: this.readGraphColors() } });
     this.post({ type: 'setLoadMoreCount', payload: { count: readLoadMoreCommitCount() } });
     this.post({ type: 'setAutoLoadMore', payload: { enabled: readAutoLoadMore() } });

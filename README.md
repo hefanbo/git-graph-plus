@@ -194,6 +194,7 @@ A modern, full-featured Git GUI for VS Code. Visualize your commit history, mana
 | `gitGraphPlus.commitMessageLinks`      | `[]`          | Custom `{ pattern, url }` regex rules that turn commit-message text into clickable links |
 | `gitGraphPlus.autoDetectRepoLinks`     | `true`        | Auto-link `#123` issues (github.com/gitlab.com) and `!123` GitLab MRs from the `origin` remote |
 | `gitGraphPlus.branchBadgeBarThickness` | `thin`        | Branch badge bar thickness (`thin`, `medium`, `thick`)   |
+| `gitGraphPlus.branchBadgeLocalLabel`   | `""`          | Text shown after the folder icon that marks a merged badge's local source (e.g. `local`) |
 | `gitGraphPlus.branchColors`            | `[]`          | Fixed branch colors by name pattern (regex → hex)        |
 | `gitGraphPlus.graphColors`             | 12 colors     | Color palette auto-assigned to graph rails (hex strings) |
 

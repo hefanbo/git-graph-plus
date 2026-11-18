@@ -23,6 +23,9 @@ class UiStore {
   homeDir = $state('');
   operating = $state<string | null>(null);
   badgeBarWidth = $state(4);
+  // Text rendered after the folder icon that marks a badge's local source.
+  // Synced from `gitGraphPlus.branchBadgeLocalLabel` (empty by default).
+  branchBadgeLocalLabel = $state('');
   loadMoreCount = $state(50);
   // When scrolled to the bottom of the graph, auto-load more commits instead of
   // requiring a click on the "Load more commits" button. Synced from the

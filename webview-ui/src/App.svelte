@@ -116,6 +116,9 @@ import AmendModal from './components/modals/AmendModal.svelte';
         case 'setBadgeBarThickness':
           uiStore.badgeBarWidth = msg.payload.width;
           break;
+        case 'setBranchBadgeLocalLabel':
+          uiStore.branchBadgeLocalLabel = msg.payload.label;
+          break;
         case 'setLoadMoreCount':
           uiStore.loadMoreCount = msg.payload.count;
           break;

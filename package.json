@@ -467,6 +467,11 @@
           "default": "thin",
           "description": "Thickness of the colored accent bar on the left of branch badges in the graph"
         },
+        "gitGraphPlus.branchBadgeLocalLabel": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Text shown after the folder icon that marks the local source of a merged branch badge in the graph (e.g. `local`). Leave empty to show only the icon."
+        },
         "gitGraphPlus.branchColors": {
           "type": "array",
           "default": [],

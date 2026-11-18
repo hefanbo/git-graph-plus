@@ -148,6 +148,11 @@ describe('MainPanel construction', () => {
     expect(H.panel!.webview).toBeDefined();
     expect(postedOfType('setLocale').length).toBeGreaterThan(0);
   });
+
+  it('posts the branch badge local label from settings', () => {
+    const data = postedOfType('setBranchBadgeLocalLabel').at(-1)!;
+    expect(data.payload).toEqual({ label: '' });
+  });
 });
 
 describe('MainPanel message routing', () => {

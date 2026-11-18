@@ -54,6 +54,7 @@ beforeEach(() => {
   uiStore.comparing = false;
   uiStore.multiSelectArmed = false;
   uiStore.autoLoadMore = true;
+  uiStore.branchBadgeLocalLabel = '';
   modalStore.closeAll();
 });
 
@@ -494,6 +495,22 @@ describe('CommitGraph — ref badges', () => {
     expect(container.querySelectorAll('.badge-divider').length).toBe(1);
     expect(container.querySelector('.codicon-folder')).toBeTruthy();
     expect(badgeTexts(container)[0]).toContain('feature-x');
+  });
+
+  it('renders the configured label after the local folder icon', async () => {
+    uiStore.branchBadgeLocalLabel = 'local';
+    const c = makeCommit('h1', 'work');
+    c.refs = [
+      { type: 'branch', name: 'feature-x' },
+      { type: 'remote-branch', name: 'feature-x', remote: 'origin' },
+    ];
+    commitStore.setData(makeGraphData([c]));
+    const { container } = render(CommitGraph, {});
+    await tick();
+
+    const folderSource = Array.from(container.querySelectorAll('.badge-source'))
+      .find(el => el.querySelector('.codicon-folder'));
+    expect(folderSource?.textContent?.trim()).toBe('local');
   });
 
   it('lists multiple remotes alphabetically with the local marker last', async () => {
