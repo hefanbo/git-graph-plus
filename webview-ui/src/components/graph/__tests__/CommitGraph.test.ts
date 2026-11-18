@@ -487,9 +487,11 @@ describe('CommitGraph — ref badges', () => {
     await tick();
 
     expect(container.querySelectorAll('.ref-badge').length).toBe(1);
-    // Sources: ☁origin then the local folder marker; separators after each.
+    // Sources: ☁origin then the local folder marker, separated by whitespace;
+    // a bar separates the sources from the branch name.
     expect(sourceTexts(container)).toEqual(['origin', '']);
-    expect(container.querySelectorAll('.badge-sep').length).toBe(2);
+    expect(badgeTexts(container)[0]).not.toContain('·');
+    expect(container.querySelectorAll('.badge-divider').length).toBe(1);
     expect(container.querySelector('.codicon-folder')).toBeTruthy();
     expect(badgeTexts(container)[0]).toContain('feature-x');
   });
@@ -506,6 +508,7 @@ describe('CommitGraph — ref badges', () => {
     await tick();
 
     expect(sourceTexts(container)).toEqual(['origin', 'upstream', '']);
+    expect(container.querySelectorAll('.badge-divider').length).toBe(1);
     expect(container.querySelector('.codicon-check')).toBeTruthy();
     expect(container.querySelectorAll('.ref-badge').length).toBe(1);
   });
@@ -538,7 +541,8 @@ describe('CommitGraph — ref badges', () => {
     await tick();
 
     expect(sourceTexts(container)).toEqual(['origin']);
-    expect(container.querySelectorAll('.badge-sep').length).toBe(1);
+    // A single source needs no separator, only the bar before the branch name.
+    expect(container.querySelectorAll('.badge-divider').length).toBe(1);
     expect(container.querySelector('.codicon-folder')).toBeFalsy();
     expect(badgeTexts(container)[0]).toContain('feat/ui');
   });
@@ -551,7 +555,7 @@ describe('CommitGraph — ref badges', () => {
     await tick();
 
     expect(sourceTexts(container)).toEqual([]);
-    expect(container.querySelectorAll('.badge-sep').length).toBe(0);
+    expect(container.querySelectorAll('.badge-divider').length).toBe(0);
     expect(badgeTexts(container)[0]).toContain('fix/user');
   });
 

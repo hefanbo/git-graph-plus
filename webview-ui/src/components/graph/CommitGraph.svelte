@@ -1598,13 +1598,15 @@
                   ondrop={(e) => { if (group.hasLocal) onBranchDrop(e, group.name); }}
                   ondragend={() => { dragSourceBranch = null; dragOverBranch = null; }}
                 >
-                  {#each group.remotes as remote (remote)}
-                    <span class="badge-source"><i class="codicon codicon-cloud ref-icon"></i>{remote}</span>
-                    <span class="badge-sep" aria-hidden="true"></span>
-                  {/each}
-                  {#if group.hasLocal && group.remotes.length > 0 && !group.isDetachedHead}
-                    <span class="badge-source"><i class="codicon codicon-folder ref-icon"></i></span>
-                    <span class="badge-sep" aria-hidden="true"></span>
+                  {#if group.remotes.length > 0}
+                    {#each group.remotes as remote (remote)}
+                      <span class="badge-source"><i class="codicon codicon-cloud ref-icon"></i>{remote}</span>
+                    {/each}
+                    {#if group.hasLocal && !group.isDetachedHead}
+                      <span class="badge-source"><i class="codicon codicon-folder ref-icon"></i></span>
+                    {/if}
+                    <!-- Bar between the sources and the branch name. -->
+                    <span class="badge-divider" aria-hidden="true"></span>
                   {/if}
                   {#if group.isHead}<i class="codicon codicon-check ref-icon"></i>{/if}
                   {#if group.hasLocal && group.isWorktree}<i class="codicon codicon-worktree ref-icon"></i>{/if}
@@ -2374,10 +2376,18 @@
     gap: 3px;
   }
 
-  /* Separator between sources and before the branch name. */
-  .badge-sep {
+  /* Sources are separated by the badge's flex gap (whitespace only). */
+  .badge-source + .badge-source {
+    margin-left: 1px;
+  }
+
+  /* Full-height bar between the source list and the branch name. Stretching
+     past the badge's vertical padding (clipped by its overflow: hidden and
+     rounded corners) makes the badge read as two halves. */
+  .badge-divider {
     width: 1px;
-    height: 11px;
+    align-self: stretch;
+    margin: -1px 2px; /* extra breathing room on both sides of the bar */
     flex-shrink: 0;
     background: currentColor;
     opacity: 0.3;
