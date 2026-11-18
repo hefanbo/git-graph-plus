@@ -421,7 +421,10 @@
         },
         "gitGraphPlus.interactiveRebase.mode": {
           "type": "string",
-          "enum": ["ui", "classic"],
+          "enum": [
+            "ui",
+            "classic"
+          ],
           "enumDescriptions": [
             "Open the built-in graphical interactive-rebase editor",
             "Run git rebase -i in the integrated terminal using your configured Git editor"
@@ -479,7 +482,10 @@
                 "description": "Hex color, e.g. #00FF00 or #0f0"
               }
             },
-            "required": ["pattern", "color"]
+            "required": [
+              "pattern",
+              "color"
+            ]
           },
           "markdownDescription": "Assign fixed colors to branches by name pattern in the graph. Each rule is `{ \"pattern\": <regex>, \"color\": <hex> }`; the first matching rule wins. Branches matching no rule keep an automatic color. Patterns are regular expressions and match anywhere in the name unless anchored (use `^main$` for an exact match)."
         },
@@ -519,7 +525,10 @@
                 "description": "URL template. $1, $2, ... are replaced by the corresponding capture groups, e.g. https://my.tracker/browse/$1"
               }
             },
-            "required": ["pattern", "url"]
+            "required": [
+              "pattern",
+              "url"
+            ]
           },
           "markdownDescription": "Turn matching text in commit messages into clickable links (Graph, Commit Details, and Reflog). Each rule is `{ \"pattern\": <regex>, \"url\": <template> }`; `$1`, `$2`, … in the template are replaced by the pattern's capture groups. Rules are applied in order, before built-in auto-detection. Only `http`/`https` URLs are opened. Tip: put rules in workspace settings (`.vscode/settings.json`) for per-repository trackers."
         },
@@ -528,40 +537,201 @@
           "default": true,
           "markdownDescription": "Automatically link references based on the `origin` remote. `!123` (GitLab merge requests) is linked for **any** host, including self-hosted GitLab. `#123` (issues) is linked for **github.com** and **gitlab.com** only — on a self-hosted host the issue path can't be determined, so add a `gitGraphPlus.commitMessageLinks` rule for those."
         },
-        "gitGraphPlus.defaults.push.force": { "type": "string", "enum": ["none", "with-lease", "force"], "default": "none", "markdownDescription": "⚠️ `with-lease`/`force` pre-checks a force push, which can overwrite remote history." },
-        "gitGraphPlus.defaults.push.setUpstream": { "type": "boolean", "default": true, "markdownDescription": "Set the upstream tracking reference with `-u` when pushing." },
-        "gitGraphPlus.defaults.push.allTags": { "type": "boolean", "default": false, "markdownDescription": "Also push all tags (`--tags`)." },
-        "gitGraphPlus.defaults.pull.rebase": { "type": "boolean", "default": true, "markdownDescription": "Rebase local commits onto the fetched changes instead of merging." },
-        "gitGraphPlus.defaults.pull.stash": { "type": "boolean", "default": false, "markdownDescription": "Stash local changes before pulling, then reapply them afterward." },
-        "gitGraphPlus.defaults.fetch.allRemotes": { "type": "boolean", "default": false, "markdownDescription": "Fetch from all remotes instead of a single one." },
-        "gitGraphPlus.defaults.merge.mode": { "type": "string", "enum": ["default", "no-ff", "squash"], "default": "default", "markdownDescription": "Merge strategy: `default` (fast-forward when possible), `no-ff` (always create a merge commit), or `squash`." },
-        "gitGraphPlus.defaults.merge.pushAfter": { "type": "boolean", "default": false, "markdownDescription": "Push the current branch after a successful merge." },
-        "gitGraphPlus.defaults.merge.deleteSource": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks deleting the merged source branch." },
-        "gitGraphPlus.defaults.merge.strategyOurs": { "type": "boolean", "default": false, "markdownDescription": "Use the `ours` merge strategy (`git merge -s ours`): keep the current branch's content and discard the incoming branch's changes, while recording a merge commit." },
-        "gitGraphPlus.defaults.merge.noCommit": { "type": "boolean", "default": false, "markdownDescription": "Pre-check merging without committing (`git merge --no-commit`): the merge is performed but left staged for review, with a merge in progress." },
-        "gitGraphPlus.defaults.rebase.autostash": { "type": "boolean", "default": false, "markdownDescription": "Stash and reapply local changes around the rebase (`--autostash`)." },
-        "gitGraphPlus.defaults.rebase.pushAfter": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks a force-with-lease push after rebase." },
-        "gitGraphPlus.defaults.amend.keepMessage": { "type": "boolean", "default": true, "markdownDescription": "Keep the existing commit message (`--no-edit`)." },
-        "gitGraphPlus.defaults.amend.resetDate": { "type": "boolean", "default": false, "markdownDescription": "Reset the commit date to now." },
-        "gitGraphPlus.defaults.amend.resetAuthor": { "type": "boolean", "default": false, "markdownDescription": "Reset the commit author to you (`--reset-author`)." },
-        "gitGraphPlus.defaults.amend.only": { "type": "boolean", "default": false, "markdownDescription": "Amend only the message/metadata without folding in staged changes (`--only`)." },
-        "gitGraphPlus.defaults.amend.pushAfter": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks a force-with-lease push after amend." },
-        "gitGraphPlus.defaults.checkout.dirty": { "type": "string", "enum": ["keep", "stash", "discard"], "default": "keep", "markdownDescription": "⚠️ `discard` pre-selects discarding local changes." },
-        "gitGraphPlus.defaults.checkoutRemote.dirty": { "type": "string", "enum": ["keep", "stash", "discard"], "default": "keep", "markdownDescription": "⚠️ `discard` pre-selects discarding local changes." },
-        "gitGraphPlus.defaults.createBranch.checkout": { "type": "boolean", "default": true, "markdownDescription": "Check out the new branch right after creating it." },
-        "gitGraphPlus.defaults.createBranch.publish": { "type": "boolean", "default": false, "markdownDescription": "Publish the new branch to the remote and set its upstream (`-u`)." },
-        "gitGraphPlus.defaults.createTag.push": { "type": "boolean", "default": true, "markdownDescription": "Push the tag to the remote after creating it." },
-        "gitGraphPlus.defaults.cherryPick.noCommit": { "type": "boolean", "default": false, "markdownDescription": "Apply the changes without committing (`--no-commit`)." },
-        "gitGraphPlus.defaults.cherryPick.pushAfter": { "type": "boolean", "default": false, "markdownDescription": "Push the branch after cherry-picking." },
-        "gitGraphPlus.defaults.revert.noCommit": { "type": "boolean", "default": false, "markdownDescription": "Apply the revert without committing (`--no-commit`)." },
-        "gitGraphPlus.defaults.revert.pushAfter": { "type": "boolean", "default": false, "markdownDescription": "Push the branch after reverting." },
-        "gitGraphPlus.defaults.reset.mode": { "type": "string", "enum": ["soft", "mixed", "hard"], "default": "mixed", "markdownDescription": "⚠️ `hard` pre-selects discarding all changes." },
-        "gitGraphPlus.defaults.stashSave.includeUntracked": { "type": "boolean", "default": true, "markdownDescription": "Include untracked files in the stash (`--include-untracked`)." },
-        "gitGraphPlus.defaults.stashSave.keepIndex": { "type": "boolean", "default": false, "markdownDescription": "Keep staged changes in the index (`--keep-index`)." },
-        "gitGraphPlus.defaults.deleteBranch.force": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks force-deleting an unmerged branch." },
-        "gitGraphPlus.defaults.deleteBranch.deleteRemote": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks deleting the branch from the remote." },
-        "gitGraphPlus.defaults.deleteTag.deleteRemote": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks deleting the tag from the remote." },
-        "gitGraphPlus.defaults.removeWorktree.deleteBranch": { "type": "boolean", "default": false, "markdownDescription": "⚠️ Pre-checks deleting the worktree's branch." }
+        "gitGraphPlus.defaults.push.force": {
+          "type": "string",
+          "enum": [
+            "none",
+            "with-lease",
+            "force"
+          ],
+          "default": "none",
+          "markdownDescription": "⚠️ `with-lease`/`force` pre-checks a force push, which can overwrite remote history."
+        },
+        "gitGraphPlus.defaults.push.setUpstream": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Set the upstream tracking reference with `-u` when pushing."
+        },
+        "gitGraphPlus.defaults.push.allTags": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Also push all tags (`--tags`)."
+        },
+        "gitGraphPlus.defaults.pull.rebase": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Rebase local commits onto the fetched changes instead of merging."
+        },
+        "gitGraphPlus.defaults.pull.stash": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Stash local changes before pulling, then reapply them afterward."
+        },
+        "gitGraphPlus.defaults.fetch.allRemotes": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Fetch from all remotes instead of a single one."
+        },
+        "gitGraphPlus.defaults.merge.mode": {
+          "type": "string",
+          "enum": [
+            "default",
+            "no-ff",
+            "squash"
+          ],
+          "default": "default",
+          "markdownDescription": "Merge strategy: `default` (fast-forward when possible), `no-ff` (always create a merge commit), or `squash`."
+        },
+        "gitGraphPlus.defaults.merge.pushAfter": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Push the current branch after a successful merge."
+        },
+        "gitGraphPlus.defaults.merge.deleteSource": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "⚠️ Pre-checks deleting the merged source branch."
+        },
+        "gitGraphPlus.defaults.merge.strategyOurs": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Use the `ours` merge strategy (`git merge -s ours`): keep the current branch's content and discard the incoming branch's changes, while recording a merge commit."
+        },
+        "gitGraphPlus.defaults.merge.noCommit": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Pre-check merging without committing (`git merge --no-commit`): the merge is performed but left staged for review, with a merge in progress."
+        },
+        "gitGraphPlus.defaults.rebase.autostash": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Stash and reapply local changes around the rebase (`--autostash`)."
+        },
+        "gitGraphPlus.defaults.rebase.pushAfter": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "⚠️ Pre-checks a force-with-lease push after rebase."
+        },
+        "gitGraphPlus.defaults.amend.keepMessage": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Keep the existing commit message (`--no-edit`)."
+        },
+        "gitGraphPlus.defaults.amend.resetDate": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Reset the commit date to now."
+        },
+        "gitGraphPlus.defaults.amend.resetAuthor": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Reset the commit author to you (`--reset-author`)."
+        },
+        "gitGraphPlus.defaults.amend.only": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Amend only the message/metadata without folding in staged changes (`--only`)."
+        },
+        "gitGraphPlus.defaults.amend.pushAfter": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "⚠️ Pre-checks a force-with-lease push after amend."
+        },
+        "gitGraphPlus.defaults.checkout.dirty": {
+          "type": "string",
+          "enum": [
+            "keep",
+            "stash",
+            "discard"
+          ],
+          "default": "keep",
+          "markdownDescription": "⚠️ `discard` pre-selects discarding local changes."
+        },
+        "gitGraphPlus.defaults.checkoutRemote.dirty": {
+          "type": "string",
+          "enum": [
+            "keep",
+            "stash",
+            "discard"
+          ],
+          "default": "keep",
+          "markdownDescription": "⚠️ `discard` pre-selects discarding local changes."
+        },
+        "gitGraphPlus.defaults.createBranch.checkout": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Check out the new branch right after creating it."
+        },
+        "gitGraphPlus.defaults.createBranch.publish": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Publish the new branch to the remote and set its upstream (`-u`)."
+        },
+        "gitGraphPlus.defaults.createTag.push": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Push the tag to the remote after creating it."
+        },
+        "gitGraphPlus.defaults.cherryPick.noCommit": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Apply the changes without committing (`--no-commit`)."
+        },
+        "gitGraphPlus.defaults.cherryPick.pushAfter": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Push the branch after cherry-picking."
+        },
+        "gitGraphPlus.defaults.revert.noCommit": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Apply the revert without committing (`--no-commit`)."
+        },
+        "gitGraphPlus.defaults.revert.pushAfter": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Push the branch after reverting."
+        },
+        "gitGraphPlus.defaults.reset.mode": {
+          "type": "string",
+          "enum": [
+            "soft",
+            "mixed",
+            "hard"
+          ],
+          "default": "mixed",
+          "markdownDescription": "⚠️ `hard` pre-selects discarding all changes."
+        },
+        "gitGraphPlus.defaults.stashSave.includeUntracked": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Include untracked files in the stash (`--include-untracked`)."
+        },
+        "gitGraphPlus.defaults.stashSave.keepIndex": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Keep staged changes in the index (`--keep-index`)."
+        },
+        "gitGraphPlus.defaults.deleteBranch.force": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "⚠️ Pre-checks force-deleting an unmerged branch."
+        },
+        "gitGraphPlus.defaults.deleteBranch.deleteRemote": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "⚠️ Pre-checks deleting the branch from the remote."
+        },
+        "gitGraphPlus.defaults.deleteTag.deleteRemote": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "⚠️ Pre-checks deleting the tag from the remote."
+        },
+        "gitGraphPlus.defaults.removeWorktree.deleteBranch": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "⚠️ Pre-checks deleting the worktree's branch."
+        }
       }
     }
   },
@@ -582,7 +752,7 @@
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
     "@vitest/coverage-v8": "^3.2.4",
-    "@vscode/vsce": "^3.0.0",
+    "@vscode/vsce": "^4.1.1",
     "concurrently": "^9.0.0",
     "esbuild": "^0.25.12",
     "happy-dom": "^20.9.0",
@@ -592,5 +762,10 @@
   },
   "dependencies": {
     "@vscode/codicons": "^0.0.45"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "keytar@7.9.0": true,
+    "@vscode/vsce-sign@2.1.1": true
   }
 }
